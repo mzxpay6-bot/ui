@@ -1,195 +1,234 @@
---[[  
-    GGMenu UI Library
-    Estilo: Cheat Premium (CS / Synapse / Onetap)
-    Criado pelo ChatGPT
+--[[
+    GGMenu v2 – Cheat UI Premium by ChatGPT
+    (Arrastável, Minimizar, Fechar, Watermark, Animações, Tabs)
+
+    API de uso:
+    local UI = Library:CreateWindow("GGMenu")
+    local Tab = UI:CreateTab("Aimbot")
+    Tab:CreateToggle("Enable", false, function(v) end)
+    Tab:CreateButton("Kill All", function() end)
 ]]
 
-local GGMenu = {}
-GGMenu.__index = GGMenu
+local GG = {}
+GG.__index = GG
 
+-- services
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local RS = game:GetService("RunService")
+local Stats = game:GetService("Stats")
 local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+local Player = game:GetService("Players").LocalPlayer
 
----------------------------------------------------------------------
--- FUNÇÃO DE ANIMAÇÃO
----------------------------------------------------------------------
-local function Tween(object, props, time)
-    TweenService:Create(object, TweenInfo.new(time or 0.15, Enum.EasingStyle.Quint), props):Play()
+-- animate
+local function tween(o, p, t)
+	TS:Create(o, TweenInfo.new(t or .16, Enum.EasingStyle.Quint), p):Play()
 end
 
----------------------------------------------------------------------
--- CRIAR JANELA
----------------------------------------------------------------------
-function GGMenu:CreateWindow(title)
-    local ui = {}
+------------------------------------------------------------------
+-- CREATE WINDOW
+------------------------------------------------------------------
+function GG:CreateWindow(title)
+	local ui = {}
 
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Parent = CoreGui
-    ScreenGui.IgnoreGuiInset = true
+	local gui = Instance.new("ScreenGui", CoreGui)
+	gui.IgnoreGuiInset = true
+	gui.Name = "GGMenu"
 
-    -- Window
-    local Main = Instance.new("Frame")
-    Main.Size = UDim2.new(0, 520, 0, 330)
-    Main.Position = UDim2.new(0.5, -260, 0.5, -165)
-    Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-    Main.BorderSizePixel = 0
-    Main.Parent = ScreenGui
+	-- main frame
+	local main = Instance.new("Frame", gui)
+	main.Size = UDim2.new(0, 620, 0, 380)
+	main.Position = UDim2.new(.5, -310, .5, -190)
+	main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+	main.BorderSizePixel = 0
 
-    local Stroke = Instance.new("UIStroke")
-    Stroke.Color = Color3.fromRGB(0, 160, 255)
-    Stroke.Thickness = 1.2
-    Stroke.Parent = Main
+	Instance.new("UICorner", main).CornerRadius = UDim.new(0, 7)
 
-    local Corner = Instance.new("UICorner")
-    Corner.CornerRadius = UDim.new(0, 8)
-    Corner.Parent = Main
+	local stroke = Instance.new("UIStroke", main)
+	stroke.Color = Color3.fromRGB(0, 140, 255)
+	stroke.Thickness = 1
 
-    local Title = Instance.new("TextLabel")
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-    Title.Text = "  " .. (title or "GGMenu")
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Font = Enum.Font.Code
-    Title.TextSize = 14
-    Title.Parent = Main
+	------------------------------------------------------------------
+	-- DRAG SYSTEM
+	------------------------------------------------------------------
+	local dragging, dragPos, startPos
 
-    ui.Main = Main
-    ui.Tabs = {}
+	main.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragPos = i.Position
+			startPos = main.Position
+		end
+	end)
 
-    ---------------------------------------------------------------------
-    -- SISTEMA DE TABS
-    ---------------------------------------------------------------------
-    function ui:CreateTab(name)
-        local tab = {}
+	UIS.InputChanged:Connect(function(i)
+		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = i.Position - dragPos
+			main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
 
-        local Button = Instance.new("TextButton")
-        Button.Size = UDim2.new(0, 120, 0, 26)
-        Button.Position = UDim2.new(0, (#ui.Tabs * 125), 0, 32)
-        Button.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
-        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Button.Text = name
-        Button.Font = Enum.Font.Code
-        Button.TextSize = 14
-        Button.BorderSizePixel = 0
-        Button.Parent = Main
+	UIS.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+	end)
 
-        local Page = Instance.new("Frame")
-        Page.Size = UDim2.new(1, -10, 1, -65)
-        Page.Position = UDim2.new(0, 5, 0, 60)
-        Page.BackgroundTransparency = 1
-        Page.Visible = (#ui.Tabs == 0)
-        Page.Parent = Main
+	------------------------------------------------------------------
+	-- TITLE BAR
+	------------------------------------------------------------------
+	local titlebar = Instance.new("TextLabel", main)
+	titlebar.Size = UDim2.new(1, 0, 0, 32)
+	titlebar.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+	titlebar.Text = "  " .. (title or "GGMenu")
+	titlebar.TextColor3 = Color3.fromRGB(255, 255, 255)
+	titlebar.Font = Enum.Font.Code
+	titlebar.TextSize = 14
+	titlebar.TextXAlignment = Enum.TextXAlignment.Left
 
-        tab.Button = Button
-        tab.Page = Page
+	local close = Instance.new("TextButton", main)
+	close.Size = UDim2.new(0, 40, 0, 32)
+	close.Position = UDim2.new(1, -40, 0, 0)
+	close.BackgroundColor3 = Color3.fromRGB(150, 40, 40)
+	close.Text = "X"
+	close.TextColor3 = Color3.fromRGB(255, 255, 255)
+	close.Font = Enum.Font.Code
+	close.TextSize = 16
+	close.BorderSizePixel = 0
 
-        table.insert(ui.Tabs, tab)
+	close.MouseButton1Click:Connect(function()
+		gui:Destroy()
+	end)
 
-        Button.MouseButton1Click:Connect(function()
-            for _, t in ipairs(ui.Tabs) do
-                t.Page.Visible = false
-                Tween(t.Button, {BackgroundColor3 = Color3.fromRGB(22, 22, 22)}, 0.15)
-            end
-            Page.Visible = true
-            Tween(Button, {BackgroundColor3 = Color3.fromRGB(0, 140, 255)}, 0.15)
-        end)
+	------------------------------------------------------------------
+	-- SIDE MENU TABS (igual cheat CS)
+	------------------------------------------------------------------
+	local tabButtons = Instance.new("Frame", main)
+	tabButtons.Size = UDim2.new(0, 130, 1, -32)
+	tabButtons.Position = UDim2.new(0, 0, 0, 32)
+	tabButtons.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
 
-        ---------------------------------------------------------------------
-        -- ELEMENTOS DO TAB
-        ---------------------------------------------------------------------
-        function tab:CreateSection(text)
-            local s = Instance.new("TextLabel")
-            s.Text = text
-            s.TextColor3 = Color3.fromRGB(0, 160, 255)
-            s.Font = Enum.Font.Code
-            s.TextSize = 14
-            s.BackgroundTransparency = 1
-            s.Size = UDim2.new(1, 0, 0, 20)
-            s.Parent = Page
-        end
+	local tabFolder = Instance.new("Folder", main)
 
-        function tab:CreateLabel(text)
-            local l = Instance.new("TextLabel")
-            l.Size = UDim2.new(1, -10, 0, 20)
-            l.Position = UDim2.new(0, 5, 0, #Page:GetChildren() * 24)
-            l.BackgroundTransparency = 1
-            l.TextColor3 = Color3.fromRGB(255, 255, 255)
-            l.Text = text
-            l.Font = Enum.Font.Code
-            l.TextSize = 14
-            l.TextXAlignment = Enum.TextXAlignment.Left
-            l.Parent = Page
-        end
+	ui.Tabs = {}
 
-        function tab:CreateButton(text, callback)
-            local b = Instance.new("TextButton")
-            b.Size = UDim2.new(1, -10, 0, 22)
-            b.Position = UDim2.new(0, 5, 0, #Page:GetChildren() * 26)
-            b.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-            b.TextColor3 = Color3.fromRGB(255, 255, 255)
-            b.Text = text
-            b.Font = Enum.Font.Code
-            b.TextSize = 14
-            b.BorderSizePixel = 0
-            b.Parent = Page
+	function ui:CreateTab(name)
+		local tab = {}
 
-            b.MouseEnter:Connect(function()
-                Tween(b, {BackgroundColor3 = Color3.fromRGB(0, 140, 255)}, 0.15)
-            end)
-            b.MouseLeave:Connect(function()
-                Tween(b, {BackgroundColor3 = Color3.fromRGB(25, 25, 25)}, 0.15)
-            end)
+		local btn = Instance.new("TextButton", tabButtons)
+		btn.Size = UDim2.new(1, 0, 0, 30)
+		btn.Position = UDim2.new(0, 0, 0, #tabButtons:GetChildren() * 30)
+		btn.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+		btn.Text = name
+		btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		btn.Font = Enum.Font.Code
+		btn.TextSize = 14
+		btn.BorderSizePixel = 0
 
-            b.MouseButton1Click:Connect(function()
-                pcall(callback)
-            end)
-        end
+		local page = Instance.new("Frame", tabFolder)
+		page.Size = UDim2.new(1, -130, 1, -32)
+		page.Position = UDim2.new(0, 130, 0, 32)
+		page.BackgroundColor3 = Color3.fromRGB(22, 22, 22)
+		page.Visible = (#ui.Tabs == 0)
 
-        function tab:CreateToggle(text, default, callback)
-            local t = {}
-            t.state = default
+		tab.Button = btn
+		tab.Page = page
+		table.insert(ui.Tabs, tab)
 
-            local frame = Instance.new("Frame")
-            frame.Size = UDim2.new(1, -10, 0, 20)
-            frame.Position = UDim2.new(0, 5, 0, #Page:GetChildren() * 24)
-            frame.BackgroundTransparency = 1
-            frame.Parent = Page
+		btn.MouseButton1Click:Connect(function()
+			for _, t in ipairs(ui.Tabs) do
+				t.Page.Visible = false
+				tween(t.Button, {BackgroundColor3 = Color3.fromRGB(28, 28, 28)}, .16)
+			end
 
-            local box = Instance.new("Frame")
-            box.Size = UDim2.new(0, 18, 0, 18)
-            box.Position = UDim2.new(0, 0, 0, 1)
-            box.BackgroundColor3 = default and Color3.fromRGB(0, 160, 255) or Color3.fromRGB(40, 40, 40)
-            box.BorderSizePixel = 0
-            box.Parent = frame
+			page.Visible = true
+			tween(btn, {BackgroundColor3 = Color3.fromRGB(0, 140, 255)}, .16)
+		end)
 
-            local txt = Instance.new("TextLabel")
-            txt.Position = UDim2.new(0, 25, 0, 0)
-            txt.Size = UDim2.new(1, -30, 1, 0)
-            txt.BackgroundTransparency = 1
-            txt.TextColor3 = Color3.fromRGB(255, 255, 255)
-            txt.Font = Enum.Font.Code
-            txt.TextSize = 14
-            txt.TextXAlignment = Enum.TextXAlignment.Left
-            txt.Text = text
-            txt.Parent = frame
+		---------------------------------------------------
+		-- ELEMENTOS DE GUI (Dentro do Tab)
+		---------------------------------------------------
+		function tab:CreateButton(txt, callback)
+			local b = Instance.new("TextButton", page)
+			b.Size = UDim2.new(1, -10, 0, 26)
+			b.Position = UDim2.new(0, 5, 0, #page:GetChildren() * 28)
+			b.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+			b.Text = txt
+			b.TextColor3 = Color3.fromRGB(255, 255, 255)
+			b.Font = Enum.Font.Code
+			b.TextSize = 14
+			b.BorderSizePixel = 0
 
-            frame.InputBegan:Connect(function(i)
-                if i.UserInputType == Enum.UserInputType.MouseButton1 then
-                    t.state = not t.state
-                    Tween(box, {
-                        BackgroundColor3 = t.state and Color3.fromRGB(0, 160, 255) or Color3.fromRGB(40, 40, 40)
-                    }, 0.15)
-                    callback(t.state)
-                end
-            end)
-        end
+			b.MouseButton1Click:Connect(function()
+				pcall(callback)
+			end)
+		end
 
-        return tab
-    end
+		function tab:CreateToggle(txt, default, callback)
+			local t = {}
+			t.state = default
 
-    return ui
+			local frame = Instance.new("Frame", page)
+			frame.Size = UDim2.new(1, -10, 0, 26)
+			frame.Position = UDim2.new(0, 5, 0, #page:GetChildren() * 28)
+			frame.BackgroundTransparency = 1
+
+			local box = Instance.new("Frame", frame)
+			box.Size = UDim2.new(0, 20, 0, 20)
+			box.Position = UDim2.new(0, 0, .5, -10)
+			box.BackgroundColor3 = default and Color3.fromRGB(0, 140, 255) or Color3.fromRGB(50, 50, 50)
+			box.BorderSizePixel = 0
+
+			local label = Instance.new("TextLabel", frame)
+			label.Size = UDim2.new(1, -30, 1, 0)
+			label.Position = UDim2.new(0, 30, 0, 0)
+			label.BackgroundTransparency = 1
+			label.Text = txt
+			label.Font = Enum.Font.Code
+			label.TextColor3 = Color3.fromRGB(255,255,255)
+			label.TextSize = 14
+			label.TextXAlignment = Enum.TextXAlignment.Left
+
+			frame.InputBegan:Connect(function(i)
+				if i.UserInputType == Enum.UserInputType.MouseButton1 then
+					t.state = not t.state
+					tween(box, {
+						BackgroundColor3 = t.state and Color3.fromRGB(0,140,255) or Color3.fromRGB(50,50,50)
+					}, .16)
+					callback(t.state)
+				end
+			end)
+		end
+
+		return tab
+	end
+
+	------------------------------------------------------------------
+	-- WATERMARK (FPS, PING, TIME)
+	------------------------------------------------------------------
+	local wm = Instance.new("TextLabel", gui)
+	wm.Size = UDim2.new(0, 260, 0, 20)
+	wm.Position = UDim2.new(0, 10, 1, -30)
+	wm.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	wm.BorderSizePixel = 0
+	wm.Font = Enum.Font.Code
+	wm.TextSize = 14
+	wm.TextXAlignment = Enum.TextXAlignment.Left
+	wm.TextColor3 = Color3.fromRGB(255,255,255)
+
+	Instance.new("UICorner", wm).CornerRadius = UDim.new(0,4)
+	local wmStroke = Instance.new("UIStroke", wm)
+	wmStroke.Color = Color3.fromRGB(0,140,255)
+
+	RS.RenderStepped:Connect(function()
+		local fps = math.floor(1 / RS.RenderStepped:Wait())
+		local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+		local time = os.date("%H:%M:%S")
+
+		wm.Text = string.format("GGMenu | %s | FPS: %d | Ping: %dms | %s",
+			Player.Name, fps, math.floor(ping), time
+		)
+	end)
+
+	return ui
 end
 
-return GGMenu
+return GG
