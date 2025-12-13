@@ -1,7 +1,6 @@
 -- ======================================
--- GGMenu UI Library v5.1 (Simplificada)
+-- GGMenu UI Library v5.2 (Limpa e Modular)
 -- ======================================
--- == xvideo menu==========
 local GGMenu = {}
 GGMenu.__index = GGMenu
 
@@ -99,7 +98,7 @@ local function GetExecutor()
 end
 
 -- ======================================
--- COMPONENTES SIMPLES
+-- COMPONENTES BASE
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     local container = Create("Frame", {
@@ -156,6 +155,10 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
         
         Toggle = function(self)
             self:Set(not self.Value)
+        end,
+        
+        Destroy = function(self)
+            container:Destroy()
         end
     }
     
@@ -248,6 +251,10 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
             valueLabel.Text = self.IsFloat and string.format("%.2f", value) or tostring(math.floor(value))
             
             if callback then callback(value) end
+        end,
+        
+        Destroy = function(self)
+            container:Destroy()
         end
     }
     
@@ -406,19 +413,18 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
         SetValue = function(value) 
             dropdownButton.Text = value
             if callback then callback(value) end
+        end,
+        Destroy = function(self)
+            clickConnection:Disconnect()
+            container:Destroy()
         end
     }
-    
-    -- Limpar conexão ao destruir
-    container.Destroying:Connect(function()
-        clickConnection:Disconnect()
-    end)
     
     return dropdown
 end
 
 -- ======================================
--- FPS BAR SIMPLES
+-- FPS BAR
 -- ======================================
 function GGMenu.CreateFPSBar()
     local screenGui = Create("ScreenGui", {
@@ -549,7 +555,7 @@ function GGMenu.CreateFPSBar()
 end
 
 -- ======================================
--- JANELA PRINCIPAL (COM DRAG MANUAL)
+-- JANELA COM TABS
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
@@ -645,87 +651,223 @@ function GGMenu.CreateWindow(title)
         end
     end)
     
-    -- Content Area
-    local content = Create("Frame", {
+    -- Área de tabs
+    local tabsContainer = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, -30, 1, -90),
-        Position = UDim2.new(0, 15, 0, 75),
+        Size = UDim2.new(1, 0, 0, 40),
+        Position = UDim2.new(0, 0, 0, 60),
         BackgroundTransparency = 1
     })
     
-    local scroll = Create("ScrollingFrame", {
-        Parent = content,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = GGMenu.Theme.Accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        BorderSizePixel = 0
-    })
-    
-    local componentsContainer = Create("Frame", {
-        Parent = scroll,
-        Size = UDim2.new(1, 0, 0, 0),
+    local tabsList = Create("Frame", {
+        Parent = tabsContainer,
+        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
         BackgroundTransparency = 1
     })
     
-    local listLayout = Create("UIListLayout", {
-        Parent = componentsContainer,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, 5)
+    -- Área de conteúdo
+    local contentArea = Create("Frame", {
+        Parent = mainFrame,
+        Size = UDim2.new(1, -30, 1, -110),
+        Position = UDim2.new(0, 15, 0, 105),
+        BackgroundTransparency = 1
     })
     
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
-    end)
-    
-    local windowVisible = true
+    -- Variáveis da janela
+    local tabs = {}
+    local currentTab = nil
+    local windowVisible = false -- Começa invisível
     
     -- Funções da janela
     local window = {
         Gui = screenGui,
         Frame = mainFrame,
+        Tabs = {},
         
-        AddSection = function(self, title)
-            local section = Create("Frame", {
-                Parent = componentsContainer,
-                Size = UDim2.new(1, 0, 0, 35),
-                BackgroundTransparency = 1,
-                LayoutOrder = 0
+        AddTab = function(self, tabName)
+            local tabId = #tabs + 1
+            
+            -- Criar botão da tab
+            local tabButton = Create("TextButton", {
+                Parent = tabsList,
+                Size = UDim2.new(0, 80, 1, 0),
+                Position = UDim2.new(0, (#tabs * 85), 0, 0),
+                BackgroundColor3 = GGMenu.Theme.BgCard,
+                Text = tabName,
+                TextColor3 = GGMenu.Theme.TextSecondary,
+                TextSize = 13,
+                Font = GGMenu.Fonts.Body,
+                AutoButtonColor = false
+            }, {
+                Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
             
-            Create("TextLabel", {
-                Parent = section,
+            -- Criar conteúdo da tab
+            local tabContent = Create("ScrollingFrame", {
+                Parent = contentArea,
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
-                Text = title:upper(),
-                TextColor3 = GGMenu.Theme.Accent,
-                TextSize = 14,
-                Font = GGMenu.Fonts.Header,
-                TextXAlignment = Enum.TextXAlignment.Left
+                ScrollBarThickness = 4,
+                ScrollBarImageColor3 = GGMenu.Theme.Accent,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                BorderSizePixel = 0,
+                Visible = false
             })
             
-            local sectionComponents = {}
+            local componentsContainer = Create("Frame", {
+                Parent = tabContent,
+                Size = UDim2.new(1, 0, 0, 0),
+                BackgroundTransparency = 1
+            })
             
-            function sectionComponents:AddToggle(text, default, callback)
-                local toggle = GGMenu.CreateToggle(componentsContainer, text, default, callback)
-                toggle.Container.LayoutOrder = 0
-                return toggle
+            local listLayout = Create("UIListLayout", {
+                Parent = componentsContainer,
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDim.new(0, 5)
+            })
+            
+            listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                tabContent.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+            end)
+            
+            -- Função para mostrar/ocultar tab
+            local function showTab()
+                -- Esconder todas as tabs
+                for _, tabData in pairs(tabs) do
+                    tabData.Content.Visible = false
+                    Tween(tabData.Button, {
+                        BackgroundColor3 = GGMenu.Theme.BgCard,
+                        TextColor3 = GGMenu.Theme.TextSecondary
+                    })
+                end
+                
+                -- Mostrar esta tab
+                tabContent.Visible = true
+                Tween(tabButton, {
+                    BackgroundColor3 = GGMenu.Theme.Accent,
+                    TextColor3 = Color3.new(1, 1, 1)
+                })
+                
+                currentTab = tabId
             end
             
-            function sectionComponents:AddSlider(text, min, max, default, callback)
-                local slider = GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
-                slider.Container.LayoutOrder = 0
-                return slider
+            -- Evento do botão
+            tabButton.MouseButton1Click:Connect(showTab)
+            
+            tabButton.MouseEnter:Connect(function()
+                if currentTab ~= tabId then
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
+                end
+            end)
+            
+            tabButton.MouseLeave:Connect(function()
+                if currentTab ~= tabId then
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCard})
+                end
+            end)
+            
+            -- Armazenar tab
+            local tabData = {
+                Name = tabName,
+                Button = tabButton,
+                Content = tabContent,
+                Container = componentsContainer,
+                Show = showTab
+            }
+            
+            tabs[tabId] = tabData
+            self.Tabs[tabName] = tabData
+            
+            -- Se for a primeira tab, mostrar
+            if tabId == 1 then
+                showTab()
             end
             
-            function sectionComponents:AddDropdown(text, options, default, callback)
-                local dropdown = GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
-                dropdown.Container.LayoutOrder = 0
-                return dropdown
+            -- Retornar interface para adicionar componentes
+            local tabInterface = {}
+            
+            function tabInterface:AddSection(title)
+                local section = Create("Frame", {
+                    Parent = componentsContainer,
+                    Size = UDim2.new(1, 0, 0, 35),
+                    BackgroundTransparency = 1,
+                    LayoutOrder = 0
+                })
+                
+                Create("TextLabel", {
+                    Parent = section,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = title:upper(),
+                    TextColor3 = GGMenu.Theme.Accent,
+                    TextSize = 14,
+                    Font = GGMenu.Fonts.Header,
+                    TextXAlignment = Enum.TextXAlignment.Left
+                })
+                
+                local sectionInterface = {}
+                
+                function sectionInterface:AddToggle(text, default, callback)
+                    local toggle = GGMenu.CreateToggle(componentsContainer, text, default, callback)
+                    toggle.Container.LayoutOrder = 0
+                    return toggle
+                end
+                
+                function sectionInterface:AddSlider(text, min, max, default, callback)
+                    local slider = GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
+                    slider.Container.LayoutOrder = 0
+                    return slider
+                end
+                
+                function sectionInterface:AddDropdown(text, options, default, callback)
+                    local dropdown = GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
+                    dropdown.Container.LayoutOrder = 0
+                    return dropdown
+                end
+                
+                function sectionInterface:AddLabel(text)
+                    local label = Create("TextLabel", {
+                        Parent = componentsContainer,
+                        Size = UDim2.new(1, 0, 0, 25),
+                        LayoutOrder = 0,
+                        BackgroundTransparency = 1,
+                        Text = text,
+                        TextColor3 = GGMenu.Theme.TextSecondary,
+                        TextSize = 13,
+                        Font = GGMenu.Fonts.Body,
+                        TextXAlignment = Enum.TextXAlignment.Left
+                    })
+                    return label
+                end
+                
+                function sectionInterface:AddSpacer(height)
+                    local spacer = Create("Frame", {
+                        Parent = componentsContainer,
+                        Size = UDim2.new(1, 0, 0, height or 20),
+                        LayoutOrder = 0,
+                        BackgroundTransparency = 1
+                    })
+                    return spacer
+                end
+                
+                return sectionInterface
             end
             
-            function sectionComponents:AddLabel(text)
+            function tabInterface:AddToggle(text, default, callback)
+                return GGMenu.CreateToggle(componentsContainer, text, default, callback)
+            end
+            
+            function tabInterface:AddSlider(text, min, max, default, callback)
+                return GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
+            end
+            
+            function tabInterface:AddDropdown(text, options, default, callback)
+                return GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
+            end
+            
+            function tabInterface:AddLabel(text)
                 local label = Create("TextLabel", {
                     Parent = componentsContainer,
                     Size = UDim2.new(1, 0, 0, 25),
@@ -740,7 +882,7 @@ function GGMenu.CreateWindow(title)
                 return label
             end
             
-            function sectionComponents:AddSpacer(height)
+            function tabInterface:AddSpacer(height)
                 local spacer = Create("Frame", {
                     Parent = componentsContainer,
                     Size = UDim2.new(1, 0, 0, height or 20),
@@ -750,13 +892,7 @@ function GGMenu.CreateWindow(title)
                 return spacer
             end
             
-            return sectionComponents
-        end,
-        
-        AddToggleInline = function(self, default, callback)
-            local toggle = GGMenu.CreateToggle(componentsContainer, "", default, callback)
-            toggle.Container.LayoutOrder = 0
-            return toggle
+            return tabInterface
         end,
         
         SetVisible = function(self, visible)
@@ -771,120 +907,67 @@ function GGMenu.CreateWindow(title)
     
     -- Fechar janela
     closeButton.MouseButton1Click:Connect(function()
-        windowVisible = not windowVisible
-        mainFrame.Visible = windowVisible
+        window:SetVisible(false)
     end)
     
-    -- Hotkey (INSERT)
-    UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == Enum.KeyCode.Insert then
-            windowVisible = not windowVisible
-            mainFrame.Visible = windowVisible
-        end
-    end)
+    -- Começar invisível
+    window:SetVisible(false)
     
     return window
 end
 
 -- ======================================
--- INICIALIZAÇÃO SIMPLES
+-- INICIALIZAÇÃO MODULAR
 -- ======================================
 function GGMenu:Init(showFPSBar)
     showFPSBar = showFPSBar ~= false
     
-    -- Configurações
-    local settings = {
-        TeamCheck = true,
-        ESP = true,
-        ShowDistance = true,
-        ShowNames = true,
-        Aimbot = false,
-        FOVSize = 180,
-        Smoothing = 0.15,
-        Acceleration = 0.20,
-        TargetPart = "Head"
-    }
-    
-    -- Carregar do _G se existir
-    if _G.GGMenuSettings then
-        for k, v in pairs(_G.GGMenuSettings) do
-            if settings[k] ~= nil then
-                settings[k] = v
-            end
-        end
-    end
-    
     local components = {}
     
-    -- FPS Bar
+    -- FPS Bar (opcional)
     if showFPSBar then
         components.FPSBar = self.CreateFPSBar()
     end
     
-    -- Janela
-    components.Window = self.CreateWindow("GGMenu v5.1")
+    -- Janela (começa invisível)
+    components.Window = self.CreateWindow("GGMenu v5.2")
     
-    -- Seções
-    local visualSection = components.Window:AddSection("VISUAL")
-    
-    components.Toggles = {}
-    components.Toggles.TeamCheck = visualSection:AddToggle("Team Check", settings.TeamCheck, function(value)
-        settings.TeamCheck = value
-        _G.GGMenuSettings = settings
+    -- Hotkey para mostrar/ocultar (INSERT)
+    local toggleConnection = UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            components.Window:SetVisible(not components.Window.Frame.Visible)
+        end
     end)
     
-    components.Toggles.ESP = visualSection:AddToggle("Enable ESP", settings.ESP, function(value)
-        settings.ESP = value
-        _G.GGMenuSettings = settings
-    end)
+    -- Conectar para limpeza
+    components.DestroyAll = function()
+        toggleConnection:Disconnect()
+        if components.FPSBar then
+            components.FPSBar:Destroy()
+        end
+        if components.Window then
+            components.Window:Destroy()
+        end
+    end
     
-    components.Toggles.ShowDistance = visualSection:AddToggle("Show Distance", settings.ShowDistance, function(value)
-        settings.ShowDistance = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    components.Toggles.ShowNames = visualSection:AddToggle("Show Names", settings.ShowNames, function(value)
-        settings.ShowNames = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    visualSection:AddSpacer(20)
-    
-    local aimbotSection = components.Window:AddSection("AIMBOT")
-    
-    aimbotSection:AddLabel("Enable Aimbot")
-    components.Toggles.Aimbot = components.Window:AddToggleInline(settings.Aimbot, function(value)
-        settings.Aimbot = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    components.Dropdowns = {}
-    components.Dropdowns.TargetPart = aimbotSection:AddDropdown("Target Part", {"Head", "Torso", "Random"}, settings.TargetPart, function(value)
-        settings.TargetPart = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    components.Sliders = {}
-    components.Sliders.FOVSize = aimbotSection:AddSlider("FOV Size", 10, 360, settings.FOVSize, function(value)
-        settings.FOVSize = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    components.Sliders.Smoothing = aimbotSection:AddSlider("Smoothing Curve", 0, 1, settings.Smoothing, function(value)
-        settings.Smoothing = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    components.Sliders.Acceleration = aimbotSection:AddSlider("Acceleration Curve", 0, 1, settings.Acceleration, function(value)
-        settings.Acceleration = value
-        _G.GGMenuSettings = settings
-    end)
-    
-    print("GGMenu v5.1 loaded!")
+    print("GGMenu v5.2 loaded!")
     print("Executor:", GetExecutor())
-    print("Press INSERT to toggle menu")
+    print("Press INSERT to show/hide menu")
     
     return components
+end
+
+-- Versão minimalista para usar apenas componentes
+function GGMenu:CreateLibrary()
+    return {
+        CreateWindow = GGMenu.CreateWindow,
+        CreateFPSBar = GGMenu.CreateFPSBar,
+        CreateToggle = GGMenu.CreateToggle,
+        CreateSlider = GGMenu.CreateSlider,
+        CreateDropdown = GGMenu.CreateDropdown,
+        Theme = GGMenu.Theme,
+        Fonts = GGMenu.Fonts
+    }
 end
 
 return GGMenu
