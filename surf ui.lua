@@ -1039,6 +1039,55 @@ function GGMenu:CreateStatusPanel()
 end
 
 
+-- ======================================
+-- Partículas de Natal para GGMenu
+-- ======================================
+function GGMenu:CreateSnowParticles(parent, amount, speed, size)
+    amount = amount or 50
+    speed = speed or 50
+    size = size or 6
+
+    local particles = {}
+
+    local screenSize = parent.AbsoluteSize or Vector2.new(800,600)
+    
+    for i = 1, amount do
+        local part = Instance.new("Frame")
+        part.Size = UDim2.new(0, size, 0, size)
+        part.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        part.BorderSizePixel = 0
+        part.Position = UDim2.new(0, math.random(0, screenSize.X), 0, math.random(-200, -10))
+        part.AnchorPoint = Vector2.new(0,0)
+        part.ZIndex = 9999
+        part.Parent = parent
+
+        local velocity = Vector2.new(math.random(-20, 20)/10, math.random(speed/2, speed)/10)
+
+        table.insert(particles, {Frame=part, Velocity=velocity})
+    end
+
+    RunService.RenderStepped:Connect(function(dt)
+        for i, p in ipairs(particles) do
+            local pos = p.Frame.Position
+            local newX = pos.X.Offset + p.Velocity.X
+            local newY = pos.Y.Offset + p.Velocity.Y
+
+            if newY > screenSize.Y then
+                newY = math.random(-100, -10)
+                newX = math.random(0, screenSize.X)
+            end
+
+            if newX < 0 then newX = screenSize.X end
+            if newX > screenSize.X then newX = 0 end
+
+            p.Frame.Position = UDim2.new(0, newX, 0, newY)
+        end
+    end)
+
+    return particles
+end
+
+
 -- Versão minimalista para usar apenas componentes
 function GGMenu:CreateLibrary()
     return {
