@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v4.0 (Xan Style + CS Features)
+-- GGMenu UI Library v4.1 (Corrigido) --xvideo
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -12,34 +12,11 @@ local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
--- Configuração do Tema (inspirado no Xan)
-GGMenu.Theme = {
-    Accent = Color3.fromRGB(232, 84, 84),      -- Vermelho Xan
-    AccentLight = Color3.fromRGB(255, 120, 120),
-    AccentDark = Color3.fromRGB(185, 60, 60),
-    BgDark = Color3.fromRGB(12, 12, 15),       -- Fundo escuro
-    BgCard = Color3.fromRGB(18, 18, 22),       -- Cards
-    BgCardHover = Color3.fromRGB(25, 25, 30),
-    TextPrimary = Color3.fromRGB(245, 245, 250),
-    TextSecondary = Color3.fromRGB(160, 160, 175),
-    TextDim = Color3.fromRGB(90, 90, 105),
-    Border = Color3.fromRGB(35, 35, 42),
-    Success = Color3.fromRGB(72, 199, 142),    -- Verde
-    Warning = Color3.fromRGB(241, 196, 15),    -- Amarelo
-    Danger = Color3.fromRGB(231, 76, 60)       -- Vermelho
-}
-
-GGMenu.Fonts = {
-    Title = Enum.Font.GothamBold,
-    Header = Enum.Font.GothamSemibold,
-    Body = Enum.Font.Gotham,
-    Code = Enum.Font.Code
-}
-
--- ======================================
--- DETECTOR DE EXECUTOR (SIMPLIFICADO)
--- ======================================
-function GGMenu.GetExecutor()
+-- Cache do executor (executa uma vez)
+local CachedExecutor = nil
+local function GetExecutor()
+    if CachedExecutor then return CachedExecutor end
+    
     local exec = "Unknown"
     pcall(function()
         if identifyexecutor then exec = identifyexecutor()
@@ -61,21 +38,62 @@ function GGMenu.GetExecutor()
         elseif isexecutorclosure then exec = "Executor"
         end
     end)
+    
+    CachedExecutor = exec
     return exec
 end
 
+GGMenu.GetExecutor = GetExecutor
+
+-- Configuração do Tema
+GGMenu.Theme = {
+    Accent = Color3.fromRGB(232, 84, 84),
+    AccentLight = Color3.fromRGB(255, 120, 120),
+    AccentDark = Color3.fromRGB(185, 60, 60),
+    BgDark = Color3.fromRGB(12, 12, 15),
+    BgCard = Color3.fromRGB(18, 18, 22),
+    BgCardHover = Color3.fromRGB(25, 25, 30),
+    TextPrimary = Color3.fromRGB(245, 245, 250),
+    TextSecondary = Color3.fromRGB(160, 160, 175),
+    TextDim = Color3.fromRGB(90, 90, 105),
+    Border = Color3.fromRGB(35, 35, 42),
+    Success = Color3.fromRGB(72, 199, 142),
+    Warning = Color3.fromRGB(241, 196, 15),
+    Danger = Color3.fromRGB(231, 76, 60)
+}
+
+GGMenu.Fonts = {
+    Title = Enum.Font.GothamBold,
+    Header = Enum.Font.GothamSemibold,
+    Body = Enum.Font.Gotham,
+    Code = Enum.Font.Code
+}
+
 -- ======================================
--- FUNÇÕES UTILITÁRIAS
+-- FUNÇÕES UTILITÁRIAS (CORRIGIDA)
 -- ======================================
-local function Create(cls, props)
-    local obj = Instance.new(cls)
-    for k, v in pairs(props) do
-        if k == "Parent" then
-            obj.Parent = v
-        else
+local function Create(class, props, children)
+    local obj = Instance.new(class)
+    
+    -- Aplica propriedades
+    for k, v in pairs(props or {}) do
+        if k ~= "Parent" then
             obj[k] = v
         end
     end
+    
+    -- Aplica parent
+    if props and props.Parent then
+        obj.Parent = props.Parent
+    end
+    
+    -- Adiciona filhos
+    if children then
+        for _, child in ipairs(children) do
+            child.Parent = obj
+        end
+    end
+    
     return obj
 end
 
@@ -89,10 +107,10 @@ local function Tween(obj, duration, props, style, direction)
 end
 
 -- ======================================
--- COMPONENTES DA UI (ESTILO XAN)
+-- COMPONENTES DA UI (CORRIGIDOS)
 -- ======================================
 
--- Toggle Switch com animação
+-- Toggle Switch
 function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     local container = Create("Frame", {
         Parent = parent,
@@ -118,24 +136,36 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = toggleFrame
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Border,
+        Thickness = 1,
+        Parent = toggleFrame
     })
     
     local toggleCircle = Create("Frame", {
         Parent = toggleFrame,
         Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(defaultValue and 1 or 0, defaultValue and -21 or 3, 0.5, 0),
+        Position = defaultValue and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
         AnchorPoint = Vector2.new(defaultValue and 1 or 0, 0.5),
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = toggleCircle
     })
     
     local toggle = {
         Value = defaultValue or false,
+        Container = container,  -- 🔴 ADICIONADO
         Set = function(self, value)
             self.Value = value
             Tween(toggleFrame, 0.25, {
@@ -166,7 +196,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     return toggle
 end
 
--- Slider elegante
+-- Slider
 function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
     local container = Create("Frame", {
         Parent = parent,
@@ -202,9 +232,17 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
         Position = UDim2.new(0, 0, 1, -20),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 3)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 3),
+        Parent = sliderTrack
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Border,
+        Thickness = 1,
+        Parent = sliderTrack
     })
     
     local sliderFill = Create("Frame", {
@@ -212,8 +250,11 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
         Size = UDim2.new((defaultValue - min) / (max - min), 0, 1, 0),
         BackgroundColor3 = GGMenu.Theme.Accent,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 3),
+        Parent = sliderFill
     })
     
     local sliderButton = Create("Frame", {
@@ -223,15 +264,24 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = Color3.new(1, 1, 1),
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = sliderButton
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Border,
+        Thickness = 1,
+        Parent = sliderButton
     })
     
     local slider = {
         Value = defaultValue or min,
         Min = min,
         Max = max,
+        Container = container,  -- 🔴 ADICIONADO
         Set = function(self, value)
             value = math.clamp(value, min, max)
             self.Value = value
@@ -276,7 +326,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
     return slider
 end
 
--- Dropdown estilizado
+-- Dropdown (com fechamento automático)
 function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
     local container = Create("Frame", {
         Parent = parent,
@@ -305,9 +355,17 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
         TextSize = 13,
         Font = GGMenu.Fonts.Body,
         AutoButtonColor = false
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = dropdownButton
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Border,
+        Thickness = 1,
+        Parent = dropdownButton
     })
     
     dropdownButton.MouseEnter:Connect(function()
@@ -319,12 +377,37 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
     end)
     
     local dropdownOpen = false
-    local dropdownFrame
+    local dropdownFrame = nil
+    
+    -- Fechar dropdown ao clicar fora
+    local function closeAllDropdowns()
+        if dropdownFrame then
+            dropdownFrame:Destroy()
+            dropdownFrame = nil
+            dropdownOpen = false
+        end
+    end
+    
+    -- Conectar evento global para fechar dropdowns
+    local closeConnection
+    local function setupCloseListener()
+        if closeConnection then closeConnection:Disconnect() end
+        
+        closeConnection = UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if dropdownFrame and not dropdownFrame:IsDescendantOf(container) then
+                    closeAllDropdowns()
+                end
+            end
+        end)
+    end
     
     local function toggleDropdown()
-        dropdownOpen = not dropdownOpen
+        closeAllDropdowns() -- Fecha outros dropdowns abertos
         
-        if dropdownOpen then
+        if not dropdownOpen then
+            dropdownOpen = true
+            
             dropdownFrame = Create("Frame", {
                 Parent = container,
                 Size = UDim2.new(0.5, 0, 0, #options * 32),
@@ -333,9 +416,17 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
                 ClipsDescendants = true,
                 BorderSizePixel = 0,
                 ZIndex = 100
-            }, {
-                Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+            })
+            
+            Create("UICorner", {
+                CornerRadius = UDim.new(0, 6),
+                Parent = dropdownFrame
+            })
+            
+            Create("UIStroke", {
+                Color = GGMenu.Theme.Border,
+                Thickness = 1,
+                Parent = dropdownFrame
             })
             
             for i, option in ipairs(options) do
@@ -362,19 +453,20 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
                 
                 optionBtn.MouseButton1Click:Connect(function()
                     dropdownButton.Text = option
-                    dropdownOpen = false
-                    dropdownFrame:Destroy()
+                    closeAllDropdowns()
                     if callback then callback(option) end
                 end)
             end
-        elseif dropdownFrame then
-            dropdownFrame:Destroy()
+            
+            setupCloseListener()
         end
     end
     
     dropdownButton.MouseButton1Click:Connect(toggleDropdown)
     
+    -- 🔴 RETORNO CORRIGIDO
     return {
+        Container = container,
         GetValue = function() return dropdownButton.Text end,
         SetValue = function(value) 
             dropdownButton.Text = value
@@ -384,7 +476,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
 end
 
 -- ======================================
--- FPS BAR (ESTILO XAN)
+-- FPS BAR (OTIMIZADA)
 -- ======================================
 function GGMenu.CreateFPSBar(config)
     config = config or {}
@@ -404,9 +496,17 @@ function GGMenu.CreateFPSBar(config)
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BackgroundTransparency = 0.1,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1.2})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 8),
+        Parent = bar
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Accent,
+        Thickness = 1.2,
+        Parent = bar
     })
     
     local textLabel = Create("TextLabel", {
@@ -429,11 +529,14 @@ function GGMenu.CreateFPSBar(config)
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = GGMenu.Theme.Success,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
     })
     
-    -- Sistema de arrastar
+    Create("UICorner", {
+        CornerRadius = UDim.new(1, 0),
+        Parent = statusDot
+    })
+    
+    -- Sistema de arrastar (sem Draggable = true)
     local dragging = false
     local dragStart, startPos
     
@@ -463,10 +566,11 @@ function GGMenu.CreateFPSBar(config)
         end
     end)
     
-    -- Atualização FPS
+    -- Atualização FPS (com cache do executor)
     local last = tick()
     local fps = 60
     local fpsSamples = {}
+    local executor = CachedExecutor or GetExecutor()  -- 🔴 CACHE
     
     RunService.RenderStepped:Connect(function()
         local now = tick()
@@ -494,7 +598,6 @@ function GGMenu.CreateFPSBar(config)
             ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
         end)
         
-        local executor = GGMenu.GetExecutor()
         local timeStr = os.date("%H:%M:%S")
         
         textLabel.Text = string.format(
@@ -503,7 +606,7 @@ function GGMenu.CreateFPSBar(config)
             fps,
             ping,
             timeStr,
-            executor
+            executor  -- 🔴 USA CACHE
         )
     end)
     
@@ -522,7 +625,7 @@ function GGMenu.CreateFPSBar(config)
 end
 
 -- ======================================
--- MAIN WINDOW (ESTILO XAN + CS)
+-- MAIN WINDOW (OTIMIZADA)
 -- ======================================
 function GGMenu.CreateWindow(title)
     local window = {}
@@ -542,20 +645,31 @@ function GGMenu.CreateWindow(title)
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0,
         Active = true,
-        Draggable = true
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
+        Draggable = true  -- 🔴 Usando Draggable nativo
     })
     
-    -- Header (como na imagem do Xan)
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 12),
+        Parent = mainFrame
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Accent,
+        Thickness = 2,
+        Parent = mainFrame
+    })
+    
+    -- Header
     local header = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, 0, 0, 60),
         BackgroundColor3 = GGMenu.Theme.BgDark,
         BorderSizePixel = 0
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 12, 0, 0)})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 12, 0, 0),
+        Parent = header
     })
     
     local titleLabel = Create("TextLabel", {
@@ -581,9 +695,17 @@ function GGMenu.CreateWindow(title)
         TextSize = 24,
         Font = Enum.Font.GothamBold,
         AutoButtonColor = false
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    Create("UICorner", {
+        CornerRadius = UDim.new(0, 6),
+        Parent = closeButton
+    })
+    
+    Create("UIStroke", {
+        Color = GGMenu.Theme.Border,
+        Thickness = 1,
+        Parent = closeButton
     })
     
     closeButton.MouseEnter:Connect(function()
@@ -600,7 +722,7 @@ function GGMenu.CreateWindow(title)
         })
     end)
     
-    -- Content Area
+    -- Content Area com scroll automático
     local content = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, -30, 1, -90),
@@ -618,24 +740,41 @@ function GGMenu.CreateWindow(title)
         BorderSizePixel = 0
     })
     
-    -- Container de componentes
+    -- Container com UIListLayout para auto-size
     local componentsContainer = Create("Frame", {
         Parent = scroll,
         Size = UDim2.new(1, 0, 0, 0),
         BackgroundTransparency = 1
     })
     
+    local listLayout = Create("UIListLayout", {
+        Parent = componentsContainer,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5)
+    })
+    
+    -- Atualizar canvas size automaticamente
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+    end)
+    
     local contentHeight = 0
     local windowVisible = true
     
     -- Função para adicionar seções
     function window:AddSection(title)
+        if title == "" then
+            return window:AddSpacer(20) -- 🟠 Trata seção vazia como espaçador
+        end
+        
         local section = Create("Frame", {
             Parent = componentsContainer,
             Size = UDim2.new(1, 0, 0, 35),
-            Position = UDim2.new(0, 0, 0, contentHeight),
+            LayoutOrder = contentHeight,
             BackgroundTransparency = 1
         })
+        
+        contentHeight = contentHeight + 1
         
         Create("TextLabel", {
             Parent = section,
@@ -648,36 +787,26 @@ function GGMenu.CreateWindow(title)
             TextXAlignment = Enum.TextXAlignment.Left
         })
         
-        contentHeight = contentHeight + 40
-        scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-        componentsContainer.Size = UDim2.new(1, 0, 0, contentHeight)
-        
         local sectionComponents = {}
         
         function sectionComponents:AddToggle(text, default, callback)
             local toggle = GGMenu.CreateToggle(componentsContainer, text, default, callback)
-            toggle.container.Position = UDim2.new(0, 0, 0, contentHeight)
-            contentHeight = contentHeight + 45
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-            componentsContainer.Size = UDim2.new(1, 0, 0, contentHeight)
+            toggle.Container.LayoutOrder = contentHeight  -- 🔴 Container corrigido
+            contentHeight = contentHeight + 1
             return toggle
         end
         
         function sectionComponents:AddSlider(text, min, max, default, callback)
             local slider = GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
-            slider.container.Position = UDim2.new(0, 0, 0, contentHeight)
-            contentHeight = contentHeight + 60
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-            componentsContainer.Size = UDim2.new(1, 0, 0, contentHeight)
+            slider.Container.LayoutOrder = contentHeight  -- 🔴 Container corrigido
+            contentHeight = contentHeight + 1
             return slider
         end
         
         function sectionComponents:AddDropdown(text, options, default, callback)
             local dropdown = GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
-            dropdown.container.Position = UDim2.new(0, 0, 0, contentHeight)
-            contentHeight = contentHeight + 50
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-            componentsContainer.Size = UDim2.new(1, 0, 0, contentHeight)
+            dropdown.Container.LayoutOrder = contentHeight  -- 🔴 Container corrigido
+            contentHeight = contentHeight + 1
             return dropdown
         end
         
@@ -685,7 +814,7 @@ function GGMenu.CreateWindow(title)
             local label = Create("TextLabel", {
                 Parent = componentsContainer,
                 Size = UDim2.new(1, 0, 0, 25),
-                Position = UDim2.new(0, 0, 0, contentHeight),
+                LayoutOrder = contentHeight,
                 BackgroundTransparency = 1,
                 Text = text,
                 TextColor3 = GGMenu.Theme.TextSecondary,
@@ -694,13 +823,24 @@ function GGMenu.CreateWindow(title)
                 TextXAlignment = Enum.TextXAlignment.Left
             })
             
-            contentHeight = contentHeight + 30
-            scroll.CanvasSize = UDim2.new(0, 0, 0, contentHeight)
-            componentsContainer.Size = UDim2.new(1, 0, 0, contentHeight)
+            contentHeight = contentHeight + 1
             return label
         end
         
         return sectionComponents
+    end
+    
+    -- Função para adicionar espaçador (novo)
+    function window:AddSpacer(height)
+        local spacer = Create("Frame", {
+            Parent = componentsContainer,
+            Size = UDim2.new(1, 0, 0, height or 20),
+            LayoutOrder = contentHeight,
+            BackgroundTransparency = 1
+        })
+        
+        contentHeight = contentHeight + 1
+        return spacer
     end
     
     -- Fechar janela
@@ -733,7 +873,7 @@ function GGMenu.CreateWindow(title)
 end
 
 -- ======================================
--- SISTEMA DE INICIALIZAÇÃO RÁPIDA
+-- SISTEMA DE INICIALIZAÇÃO (CORRIGIDO)
 -- ======================================
 function GGMenu:Init(showFPSBar)
     showFPSBar = showFPSBar ~= false
@@ -746,97 +886,90 @@ function GGMenu:Init(showFPSBar)
     end
     
     -- Criar Janela Principal
-    components.Window = self.CreateWindow("GGMenu v4.0")
+    components.Window = self.CreateWindow("GGMenu v4.1")
     
-    -- Configurações salvas
-    local settings = {
-        TeamCheck = true,
-        ESP = true,
-        ShowDistance = true,
-        ShowNames = true,
-        Aimbot = false,
-        FOVSize = 180,
-        Smoothing = 0.15,
-        Acceleration = 0.20,
-        TargetPart = "Head"
-    }
-    
-    -- Carregar configurações salvas
-    if _G.GGMenuSettings then
-        for k, v in pairs(_G.GGMenuSettings) do
-            settings[k] = v
-        end
+    -- Configurações salvas (namespace único)
+    local settingsKey = "__GGMenu_Settings_" .. tostring(math.random(1000, 9999))
+    if not _G[settingsKey] then
+        _G[settingsKey] = {
+            TeamCheck = true,
+            ESP = true,
+            ShowDistance = true,
+            ShowNames = true,
+            Aimbot = false,
+            FOVSize = 180,
+            Smoothing = 0.15,
+            Acceleration = 0.20,
+            TargetPart = "Head"
+        }
     end
     
-    -- Adicionar seções (como na imagem que você mostrou)
+    local settings = _G[settingsKey]
+    
+    -- Adicionar seções
     local visualSection = components.Window:AddSection("VISUAL")
     
     components.Toggles = {}
     components.Toggles.TeamCheck = visualSection:AddToggle("Team Check", settings.TeamCheck, function(value)
         settings.TeamCheck = value
-        _G.GGMenuSettings = settings
         print("Team Check:", value and "ON" or "OFF")
     end)
     
     components.Toggles.ESP = visualSection:AddToggle("Enable ESP", settings.ESP, function(value)
         settings.ESP = value
-        _G.GGMenuSettings = settings
         print("ESP:", value and "ON" or "OFF")
     end)
     
     components.Toggles.ShowDistance = visualSection:AddToggle("Show Distance", settings.ShowDistance, function(value)
         settings.ShowDistance = value
-        _G.GGMenuSettings = settings
         print("Show Distance:", value and "ON" or "OFF")
     end)
     
     components.Toggles.ShowNames = visualSection:AddToggle("Show Names", settings.ShowNames, function(value)
         settings.ShowNames = value
-        _G.GGMenuSettings = settings
         print("Show Names:", value and "ON" or "OFF")
     end)
     
-    components.Window:AddSection("")
+    components.Window:AddSpacer(20)  -- 🟠 Substitui AddSection("")
     
     local aimbotSection = components.Window:AddSection("AIMBOT")
     
     aimbotSection:AddLabel("Enable Aimbot")
-    components.Toggles.Aimbot = visualSection:AddToggle("", settings.Aimbot, function(value)
+    components.Toggles.Aimbot = aimbotSection:AddToggle("", settings.Aimbot, function(value)  -- 🔴 CORRIGIDO: aimbotSection
         settings.Aimbot = value
-        _G.GGMenuSettings = settings
         print("Aimbot:", value and "ON" or "OFF")
     end)
     
     components.Dropdowns = {}
     components.Dropdowns.TargetPart = aimbotSection:AddDropdown("Target Part", {"Head", "Torso", "Random"}, settings.TargetPart, function(value)
         settings.TargetPart = value
-        _G.GGMenuSettings = settings
         print("Target Part:", value)
     end)
     
     components.Sliders = {}
     components.Sliders.FOVSize = aimbotSection:AddSlider("FOV Size", 10, 360, settings.FOVSize, function(value)
         settings.FOVSize = value
-        _G.GGMenuSettings = settings
         print("FOV Size:", value)
     end)
     
     components.Sliders.Smoothing = aimbotSection:AddSlider("Smoothing Curve", 0, 1, settings.Smoothing, function(value)
         settings.Smoothing = value
-        _G.GGMenuSettings = settings
         print("Smoothing:", value)
     end)
     
     components.Sliders.Acceleration = aimbotSection:AddSlider("Acceleration Curve", 0, 1, settings.Acceleration, function(value)
         settings.Acceleration = value
-        _G.GGMenuSettings = settings
         print("Acceleration:", value)
     end)
     
     -- Informações do sistema
-    print("GGMenu v4.0 loaded!")
-    print("Executor:", self.GetExecutor())
+    print("GGMenu v4.1 loaded!")
+    print("Executor:", GetExecutor())
+    print("Settings key:", settingsKey)
     print("Press INSERT to toggle menu")
+    
+    -- Retornar também a chave de configurações
+    components.SettingsKey = settingsKey
     
     return components
 end
