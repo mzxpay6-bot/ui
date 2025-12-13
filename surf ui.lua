@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.2 (Apenas PC)
+-- GGMenu UI Library v6.2 (Apenas PC) -  red tube
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -10,10 +10,32 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 
--- Sistema seguro para obter parent
+-- Sistema SEGURO para obter parent (CORREÇÃO 1)
 local function GetGuiParent()
-    return CoreGui or Players.LocalPlayer:WaitForChild("PlayerGui")
+    -- Tentar CoreGui primeiro com pcall
+    local success, coreGui = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    
+    if success and coreGui then
+        return coreGui
+    end
+    
+    -- Fallback para PlayerGui
+    local player = Players.LocalPlayer
+    while not player do
+        task.wait(0.1)
+        player = Players.LocalPlayer
+    end
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then
+        playerGui = player:WaitForChild("PlayerGui")
+    end
+    
+    return playerGui
 end
 
 -- Configurações de tema
@@ -170,9 +192,9 @@ end
 GGMenu.LoadConfigs()
 
 -- ======================================
--- COMPONENTES BASE
+-- COMPONENTES BASE (COM CALLBACK PARA TOGGLE - CORREÇÃO 2)
 -- ======================================
-function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
+function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable, callback)
     local container = Create("Frame", {
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 40),
@@ -229,6 +251,11 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
             
             if configKey and configTable then
                 configTable:Set(configKey, value)
+            end
+            
+            -- Executar callback se fornecido
+            if callback then
+                callback(value)
             end
         end,
         
@@ -985,7 +1012,7 @@ function GGMenu.CreateWindow(title)
 end
 
 -- ======================================
--- INICIALIZAÇÃO SIMPLES
+-- INICIALIZAÇÃO SIMPLES (REVISADA - CORREÇÃO 2)
 -- ======================================
 function GGMenu:Init()
     local components = {}
@@ -1054,6 +1081,9 @@ function GGMenu:Init()
             self.Theme.BgCard = theme.bg
             themeConfig:Set("Accent", theme.accent)
             themeConfig:Set("Background", theme.bg)
+            
+            -- Notificação
+            GGMenu.Notify("Tema", "Tema " .. theme.name .. " aplicado!", 2)
         end)
     end
     
@@ -1083,7 +1113,7 @@ function GGMenu:Init()
         end
     end)
     
-    -- Configuração do FPS Bar
+    -- Configuração do FPS Bar (SIMPLIFICADA - CORREÇÃO 2)
     local fpsSection = configTab:AddSection("FPS Bar")
     
     local fpsConfig = self.CreateConfig("FPS_Settings", {
@@ -1092,19 +1122,12 @@ function GGMenu:Init()
         PositionY = -42
     })
     
-    local fpsToggle = fpsSection:AddToggle("Mostrar FPS Bar", fpsConfig:Get("Enabled"), "Enabled", fpsConfig)
-    fpsToggle:Set(fpsConfig:Get("Enabled"))
-    
-    fpsToggle.ValueChanged = function(value)
-        components.FPSBar:SetVisible(value)
-    end
-    
-    fpsToggle.Button.MouseButton1Click:Connect(function()
-        fpsToggle:Toggle()
-        if fpsToggle.ValueChanged then
-            fpsToggle.ValueChanged(fpsToggle.Value)
+    -- Usar callback diretamente (SEM duplicação de lógica)
+    local fpsToggle = fpsSection:AddToggle("Mostrar FPS Bar", fpsConfig:Get("Enabled"), "Enabled", fpsConfig,
+        function(value)
+            components.FPSBar:SetVisible(value)
         end
-    end)
+    )
     
     -- Inicialmente esconder a janela
     components.MainWindow:SetVisible(false)
@@ -1116,6 +1139,14 @@ function GGMenu:Init()
         ToggleWindow = function()
             windowVisible = not windowVisible
             components.MainWindow:SetVisible(windowVisible)
+        end,
+        Show = function()
+            windowVisible = true
+            components.MainWindow:SetVisible(true)
+        end,
+        Hide = function()
+            windowVisible = false
+            components.MainWindow:SetVisible(false)
         end,
         Close = function()
             components.FPSBar:Destroy()
@@ -1142,8 +1173,13 @@ function GGMenu.CreateExample()
         dropdownOption = "Opção 1"
     })
     
-    -- Criar controles
-    local toggle1 = controls:AddToggle("Toggle Exemplo", config:Get("toggle1"), "toggle1", config)
+    -- Criar controles com callback (opcional)
+    local toggle1 = controls:AddToggle("Toggle Exemplo", config:Get("toggle1"), "toggle1", config,
+        function(value)
+            print("Toggle mudou para:", value)
+        end
+    )
+    
     local slider1 = controls:AddSlider("Slider Exemplo", 0, 100, config:Get("sliderValue"), "sliderValue", config)
     
     local options = {"Opção 1", "Opção 2", "Opção 3"}
@@ -1153,13 +1189,15 @@ function GGMenu.CreateExample()
     controls:AddSpacer(10)
     
     controls:AddButton("Mostrar Notificação", function()
-        -- Função para mostrar notificação (pode ser implementada depois)
-        print("Notificação clicada!")
+        GGMenu.Notify("Exemplo", "Esta é uma notificação de exemplo!", 3)
     end)
     
     controls:AddButton("Copiar Config", function()
         local json = game:GetService("HttpService"):JSONEncode(config.Data)
-        setclipboard(json)
+        if setclipboard then
+            setclipboard(json)
+            GGMenu.Notify("Copiado", "Configuração copiada para a área de transferência!", 2)
+        end
     end)
     
     return ui
@@ -1265,6 +1303,16 @@ function GGMenu.Notify(title, text, duration)
         task.wait(0.3)
         screenGui:Destroy()
     end)
+end
+
+-- ======================================
+-- FUNÇÃO AUXILIAR PARA ATUALIZAR TEMA (CORREÇÃO 3 - OPCIONAL)
+-- ======================================
+function GGMenu.RefreshTheme()
+    -- Esta função pode ser implementada se quiser
+    -- atualizar dinamicamente todos os elementos
+    -- Nota: Por enquanto, temas só afetam novos elementos
+    print("GGMenu: Use GGMenu.Theme para configurar temas antes de criar elementos")
 end
 
 -- ======================================
