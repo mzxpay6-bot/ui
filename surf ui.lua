@@ -13,10 +13,19 @@ local UserInputService = game:GetService("UserInputService")
 
 -- Sistema seguro para obter parent
 local function GetGuiParent()
-    return CoreGui or Players.LocalPlayer:WaitForChild("PlayerGui")
+    local success, result = pcall(function()
+        return game:GetService("CoreGui")
+    end)
+    
+    if success and result then
+        return result
+    end
+    
+    -- Fallback para PlayerGui
+    return Players.LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Configurações desktop (mobile removido)
+-- Configurações desktop
 GGMenu.Responsive = {
     IsMobile = false,
     Scale = 1,
@@ -100,23 +109,42 @@ local function GetExecutor()
     
     local exec = "Unknown"
     pcall(function()
-        if identifyexecutor then exec = identifyexecutor()
-        elseif getexecutorname then exec = getexecutorname()
-        elseif _G.Executor then exec = tostring(_G.Executor)
-        elseif ArceusX then exec = "Arceus X"
-        elseif Hydrogen then exec = "Hydrogen"
-        elseif Delta then exec = "Delta"
-        elseif Codex then exec = "Codex"
-        elseif VegaX then exec = "Vega X"
-        elseif Xeno then exec = "Xeno"
-        elseif Valex then exec = "Valex"
-        elseif Nihon then exec = "Nihon"
-        elseif Volcano then exec = "Volcano"
-        elseif Bunni then exec = "Bunni"
-        elseif Velocity then exec = "Velocity"
-        elseif LX63 then exec = "LX63"
-        elseif Visual then exec = "Visual"
-        elseif isexecutorclosure then exec = "Executor"
+        if identifyexecutor then 
+            exec = identifyexecutor()
+        elseif getexecutorname then 
+            exec = getexecutorname()
+        elseif _G.Executor then 
+            exec = tostring(_G.Executor)
+        elseif ArceusX then 
+            exec = "Arceus X"
+        elseif Hydrogen then 
+            exec = "Hydrogen"
+        elseif Delta then 
+            exec = "Delta"
+        elseif Codex then 
+            exec = "Codex"
+        elseif VegaX then 
+            exec = "Vega X"
+        elseif Xeno then 
+            exec = "Xeno"
+        elseif Valex then 
+            exec = "Valex"
+        elseif Nihon then 
+            exec = "Nihon"
+        elseif Volcano then 
+            exec = "Volcano"
+        elseif Bunni then 
+            exec = "Bunni"
+        elseif Velocity then 
+            exec = "Velocity"
+        elseif LX63 then 
+            exec = "LX63"
+        elseif Visual then 
+            exec = "Visual"
+        elseif isexecutorclosure then 
+            exec = "Executor"
+        else
+            exec = "Roblox Studio"
         end
     end)
     
@@ -193,7 +221,7 @@ GGMenu.LoadConfigs()
 function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
     local container = Create("Frame", {
         Parent = parent,
-        Size = ResponsiveSize(1, 40),
+        Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
         LayoutOrder = 0
     })
@@ -204,14 +232,14 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(14),
+        TextSize = 14,
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
     local toggleFrame = Create("Frame", {
         Parent = container,
-        Size = ResponsiveSize(48, 26),
+        Size = UDim2.new(0, 48, 0, 26),
         Position = UDim2.new(1, -48, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
@@ -223,7 +251,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
     
     local toggleCircle = Create("Frame", {
         Parent = toggleFrame,
-        Size = ResponsiveSize(20, 20),
+        Size = UDim2.new(0, 20, 0, 20),
         Position = defaultValue and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
         AnchorPoint = Vector2.new(defaultValue and 1 or 0, 0.5),
         BackgroundColor3 = Color3.new(1, 1, 1),
@@ -276,7 +304,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
     local isFloat = (defaultValue or min) % 1 ~= 0
     local container = Create("Frame", {
         Parent = parent,
-        Size = ResponsiveSize(1, 50),
+        Size = UDim2.new(1, 0, 0, 50),
         BackgroundTransparency = 1,
         LayoutOrder = 0
     })
@@ -287,7 +315,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(14),
+        TextSize = 14,
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
     })
@@ -299,7 +327,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         BackgroundTransparency = 1,
         Text = isFloat and string.format("%.2f", defaultValue or min) or tostring(defaultValue or min),
         TextColor3 = GGMenu.Theme.TextSecondary,
-        TextSize = ResponsiveFontSize(12),
+        TextSize = 12,
         Font = GGMenu.Fonts.Code
     })
     
@@ -325,7 +353,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
     
     local sliderButton = Create("Frame", {
         Parent = sliderTrack,
-        Size = ResponsiveSize(16, 16),
+        Size = UDim2.new(0, 16, 0, 16),
         Position = UDim2.new((defaultValue - min) / (max - min), -8, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = Color3.new(1, 1, 1),
@@ -394,7 +422,7 @@ end
 function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, configTable)
     local container = Create("Frame", {
         Parent = parent,
-        Size = ResponsiveSize(1, 40),
+        Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
         LayoutOrder = 0
     })
@@ -405,7 +433,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(14),
+        TextSize = 14,
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
     })
@@ -417,7 +445,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = defaultValue or options[1],
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(13),
+        TextSize = 13,
         Font = GGMenu.Fonts.Body,
         AutoButtonColor = false
     }, {
@@ -469,7 +497,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                     BackgroundColor3 = GGMenu.Theme.BgDark,
                     Text = option,
                     TextColor3 = GGMenu.Theme.TextPrimary,
-                    TextSize = ResponsiveFontSize(13),
+                    TextSize = 13,
                     Font = GGMenu.Fonts.Body,
                     AutoButtonColor = false,
                     ZIndex = 101
@@ -545,7 +573,7 @@ function GGMenu.CreateFPSBar()
     
     local bar = Create("Frame", {
         Parent = screenGui,
-        Size = ResponsiveSize(450, 32),
+        Size = UDim2.new(0, 450, 0, 32),
         Position = UDim2.new(0, 10, 1, -42),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BackgroundTransparency = 0.1,
@@ -562,7 +590,7 @@ function GGMenu.CreateFPSBar()
         BackgroundTransparency = 1,
         Text = "GGMenu | Loading...",
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(13),
+        TextSize = 13,
         Font = GGMenu.Fonts.Code,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextStrokeTransparency = 0.7
@@ -570,7 +598,7 @@ function GGMenu.CreateFPSBar()
     
     local statusDot = Create("Frame", {
         Parent = bar,
-        Size = ResponsiveSize(6, 6),
+        Size = UDim2.new(0, 6, 0, 6),
         Position = UDim2.new(1, -12, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = GGMenu.Theme.Success,
@@ -674,7 +702,7 @@ function GGMenu.CreateWindow(title)
     
     local mainFrame = Create("Frame", {
         Parent = screenGui,
-        Size = ResponsiveSize(500, 550),
+        Size = UDim2.new(0, 500, 0, 550),
         Position = UDim2.new(0.5, -250, 0.5, -275),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0
@@ -700,20 +728,20 @@ function GGMenu.CreateWindow(title)
         BackgroundTransparency = 1,
         Text = title,
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(20),
+        TextSize = 20,
         Font = GGMenu.Fonts.Title,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
     local closeButton = Create("TextButton", {
         Parent = header,
-        Size = ResponsiveSize(32, 32),
+        Size = UDim2.new(0, 32, 0, 32),
         Position = UDim2.new(1, -35, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = "×",
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = ResponsiveFontSize(24),
+        TextSize = 24,
         Font = Enum.Font.GothamBold,
         AutoButtonColor = false
     }, {
@@ -805,12 +833,12 @@ function GGMenu.CreateWindow(title)
             -- Criar botão da tab
             local tabButton = Create("TextButton", {
                 Parent = tabsList,
-                Size = ResponsiveSize(tabWidth, 32),
+                Size = UDim2.new(0, tabWidth, 0, 32),
                 Position = UDim2.new(0, ((tabId-1) * (tabWidth + 5)), 0, 0),
                 BackgroundColor3 = GGMenu.Theme.BgCard,
                 Text = tabName,
                 TextColor3 = GGMenu.Theme.TextSecondary,
-                TextSize = ResponsiveFontSize(13),
+                TextSize = 13,
                 Font = GGMenu.Fonts.Body,
                 AutoButtonColor = false
             }, {
@@ -921,7 +949,7 @@ function GGMenu.CreateWindow(title)
                     BackgroundTransparency = 1,
                     Text = title:upper(),
                     TextColor3 = GGMenu.Theme.Accent,
-                    TextSize = ResponsiveFontSize(14),
+                    TextSize = 14,
                     Font = GGMenu.Fonts.Header,
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
@@ -948,7 +976,7 @@ function GGMenu.CreateWindow(title)
                         BackgroundTransparency = 1,
                         Text = text,
                         TextColor3 = GGMenu.Theme.TextSecondary,
-                        TextSize = ResponsiveFontSize(13),
+                        TextSize = 13,
                         Font = GGMenu.Fonts.Body,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
@@ -973,7 +1001,7 @@ function GGMenu.CreateWindow(title)
                         BackgroundColor3 = GGMenu.Theme.Accent,
                         Text = text,
                         TextColor3 = Color3.new(1, 1, 1),
-                        TextSize = ResponsiveFontSize(14),
+                        TextSize = 14,
                         Font = GGMenu.Fonts.Body,
                         AutoButtonColor = false
                     }, {
