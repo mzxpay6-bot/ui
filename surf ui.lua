@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.0 (Mobile + Config)
+-- GGMenu UI Library v6.1 (Corrigido e Otimizado)  mobvile removed
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -8,24 +8,25 @@ GGMenu.__index = GGMenu
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
-local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+-- Sistema seguro para obter parent
+local function GetGuiParent()
+    return CoreGui or Players.LocalPlayer:WaitForChild("PlayerGui")
+end
+
 -- Detectar dispositivo
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local isTablet = isMobile and UserInputService.TouchEnabled
 
 -- Configurações responsivas
 GGMenu.Responsive = {
     IsMobile = isMobile,
-    IsTablet = isTablet,
     Scale = isMobile and 0.85 or 1,
-    FontSizeMultiplier = isMobile and 0.9 or 1,
-    PaddingMultiplier = isMobile and 0.8 or 1
+    FontSizeMultiplier = isMobile and 0.9 or 1
 }
 
--- Configurações de tema (com suporte a tema claro/escuro)
+-- Configurações de tema
 GGMenu.Theme = {
     Accent = Color3.fromRGB(232, 84, 84),
     BgDark = Color3.fromRGB(12, 12, 15),
@@ -36,33 +37,8 @@ GGMenu.Theme = {
     Border = Color3.fromRGB(35, 35, 42),
     Success = Color3.fromRGB(72, 199, 142),
     Warning = Color3.fromRGB(241, 196, 15),
-    Danger = Color3.fromRGB(231, 76, 60),
-    
-    -- Para tema claro (opcional)
-    LightMode = false,
-    Light = {
-        Accent = Color3.fromRGB(220, 60, 60),
-        BgDark = Color3.fromRGB(240, 240, 245),
-        BgCard = Color3.fromRGB(250, 250, 255),
-        BgCardHover = Color3.fromRGB(230, 230, 240),
-        TextPrimary = Color3.fromRGB(30, 30, 40),
-        TextSecondary = Color3.fromRGB(100, 100, 120),
-        Border = Color3.fromRGB(200, 200, 210)
-    }
+    Danger = Color3.fromRGB(231, 76, 60)
 }
-
--- Sistema de tema dinâmico
-function GGMenu.SetTheme(lightMode)
-    GGMenu.Theme.LightMode = lightMode
-    if lightMode then
-        GGMenu.CurrentTheme = GGMenu.Theme.Light
-    else
-        GGMenu.CurrentTheme = GGMenu.Theme
-    end
-end
-
--- Inicializar tema
-GGMenu.CurrentTheme = GGMenu.Theme
 
 -- Fonts responsivas
 GGMenu.Fonts = {
@@ -75,8 +51,7 @@ GGMenu.Fonts = {
 -- Sistema de configurações
 local SettingsSystem = {
     Configs = {},
-    AutoSave = true,
-    SaveMethod = nil -- "file", "datastore", "memory"
+    AutoSave = true
 }
 
 -- ======================================
@@ -122,7 +97,7 @@ local function ResponsiveFontSize(baseSize)
     return baseSize * GGMenu.Responsive.FontSizeMultiplier
 end
 
--- Detectar executor (cache)
+-- Detectar executor
 local cachedExecutor = nil
 local function GetExecutor()
     if cachedExecutor then return cachedExecutor end
@@ -190,22 +165,19 @@ end
 
 -- Salvar configurações
 function GGMenu.SaveConfigs()
-    if SettingsSystem.SaveMethod == "file" and writefile and readfile then
+    if writefile and readfile then
         pcall(function()
             local json = game:GetService("HttpService"):JSONEncode(SettingsSystem.Configs)
             writefile("ggmenu_configs.json", json)
         end)
-    elseif SettingsSystem.SaveMethod == "datastore" then
-        -- Implementar datastore se necessário
-    else
-        -- Salvar em _G como fallback
+    elseif _G.GGMenu_Configs then
         _G.GGMenu_Configs = SettingsSystem.Configs
     end
 end
 
 -- Carregar configurações
 function GGMenu.LoadConfigs()
-    if SettingsSystem.SaveMethod == "file" and readfile and isfile then
+    if readfile and isfile and isfile("ggmenu_configs.json") then
         pcall(function()
             local json = readfile("ggmenu_configs.json")
             local data = game:GetService("HttpService"):JSONDecode(json)
@@ -216,16 +188,11 @@ function GGMenu.LoadConfigs()
     end
 end
 
--- Configurar método de salvamento
-function GGMenu.SetSaveMethod(method)
-    SettingsSystem.SaveMethod = method
-    if method == "file" then
-        GGMenu.LoadConfigs()
-    end
-end
+-- Carregar configs ao iniciar
+GGMenu.LoadConfigs()
 
 -- ======================================
--- COMPONENTES BASE (RESPONSIVOS)
+-- COMPONENTES BASE
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
     local container = Create("Frame", {
@@ -240,7 +207,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
         Size = UDim2.new(0.7, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = text,
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
+        TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = ResponsiveFontSize(14),
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
@@ -254,11 +221,11 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
         Size = ResponsiveSize(toggleSize, 26),
         Position = UDim2.new(1, -toggleSize, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = defaultValue and GGMenu.CurrentTheme.Accent or GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
         BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
     local toggleCircle = Create("Frame", {
@@ -280,12 +247,11 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
         
         Set = function(self, value)
             self.Value = value
-            Tween(toggleFrame, {BackgroundColor3 = value and GGMenu.CurrentTheme.Accent or GGMenu.CurrentTheme.BgCard})
+            Tween(toggleFrame, {BackgroundColor3 = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard})
             Tween(toggleCircle, {
                 Position = value and UDim2.new(1, -(circleSize+1), 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
             })
             
-            -- Salvar em configuração se fornecido
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
@@ -293,14 +259,9 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable)
         
         Toggle = function(self)
             self:Set(not self.Value)
-        end,
-        
-        Destroy = function(self)
-            container:Destroy()
         end
     }
     
-    -- Suporte a touch para mobile
     local button = Create("TextButton", {
         Parent = toggleFrame,
         Size = UDim2.new(1, 0, 1, 0),
@@ -333,7 +294,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         Size = UDim2.new(1, -60, 0, 20),
         BackgroundTransparency = 1,
         Text = text,
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
+        TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = ResponsiveFontSize(14),
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
@@ -345,7 +306,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         Position = UDim2.new(1, -60, 0, 0),
         BackgroundTransparency = 1,
         Text = isFloat and string.format("%.2f", defaultValue or min) or tostring(defaultValue or min),
-        TextColor3 = GGMenu.CurrentTheme.TextSecondary,
+        TextColor3 = GGMenu.Theme.TextSecondary,
         TextSize = ResponsiveFontSize(12),
         Font = GGMenu.Fonts.Code
     })
@@ -354,20 +315,20 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         Parent = container,
         Size = UDim2.new(1, 0, 0, isMobile and 8 or 6),
         Position = UDim2.new(0, 0, 1, -20),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 : 3)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 or 3)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
     local sliderFill = Create("Frame", {
         Parent = sliderTrack,
         Size = UDim2.new((defaultValue - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = GGMenu.CurrentTheme.Accent,
+        BackgroundColor3 = GGMenu.Theme.Accent,
         BorderSizePixel = 0
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 : 3)})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 or 3)})
     })
     
     local buttonSize = isMobile and 20 or 16
@@ -380,7 +341,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
     local slider = {
@@ -401,14 +362,9 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
             sliderButton.Position = UDim2.new(percent, -(buttonSize/2), 0.5, 0)
             valueLabel.Text = self.IsFloat and string.format("%.2f", value) or tostring(math.floor(value))
             
-            -- Salvar em configuração se fornecido
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
-        end,
-        
-        Destroy = function(self)
-            container:Destroy()
         end
     }
     
@@ -422,7 +378,6 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         slider:Set(value)
     end
     
-    -- Suporte a touch e mouse
     sliderTrack.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
@@ -461,7 +416,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         Size = UDim2.new(0.5, 0, 0, 20),
         BackgroundTransparency = 1,
         Text = text,
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
+        TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = ResponsiveFontSize(14),
         Font = GGMenu.Fonts.Body,
         TextXAlignment = Enum.TextXAlignment.Left
@@ -469,25 +424,25 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
     
     local dropdownButton = Create("TextButton", {
         Parent = container,
-        Size = UDim2.new(0.5, 0, 0, isMobile and 36 : 32),
+        Size = UDim2.new(0.5, 0, 0, isMobile and 36 or 32),
         Position = UDim2.new(0.5, 0, 0, 0),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = defaultValue or options[1],
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
+        TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = ResponsiveFontSize(13),
         Font = GGMenu.Fonts.Body,
         AutoButtonColor = false
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
     dropdownButton.MouseEnter:Connect(function()
-        Tween(dropdownButton, {BackgroundColor3 = GGMenu.CurrentTheme.BgCardHover})
+        Tween(dropdownButton, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
     end)
     
     dropdownButton.MouseLeave:Connect(function()
-        Tween(dropdownButton, {BackgroundColor3 = GGMenu.CurrentTheme.BgCard})
+        Tween(dropdownButton, {BackgroundColor3 = GGMenu.Theme.BgCard})
     end)
     
     local dropdownOpen = false
@@ -510,22 +465,22 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                 Parent = container,
                 Size = UDim2.new(0.5, 0, 0, math.min(#options * 32, 160)),
                 Position = UDim2.new(0.5, 0, 0, 35),
-                BackgroundColor3 = GGMenu.CurrentTheme.BgDark,
+                BackgroundColor3 = GGMenu.Theme.BgDark,
                 BorderSizePixel = 0,
                 ZIndex = 100
             }, {
                 Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-                Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
             
             for i, option in ipairs(options) do
                 local optionBtn = Create("TextButton", {
                     Parent = dropdownFrame,
-                    Size = UDim2.new(1, 0, 0, isMobile and 36 : 32),
-                    Position = UDim2.new(0, 0, 0, (i-1)*(isMobile and 36 : 32)),
-                    BackgroundColor3 = GGMenu.CurrentTheme.BgDark,
+                    Size = UDim2.new(1, 0, 0, isMobile and 36 or 32),
+                    Position = UDim2.new(0, 0, 0, (i-1)*(isMobile and 36 or 32)),
+                    BackgroundColor3 = GGMenu.Theme.BgDark,
                     Text = option,
-                    TextColor3 = GGMenu.CurrentTheme.TextPrimary,
+                    TextColor3 = GGMenu.Theme.TextPrimary,
                     TextSize = ResponsiveFontSize(13),
                     Font = GGMenu.Fonts.Body,
                     AutoButtonColor = false,
@@ -533,11 +488,11 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                 })
                 
                 optionBtn.MouseEnter:Connect(function()
-                    Tween(optionBtn, {BackgroundColor3 = GGMenu.CurrentTheme.BgCard})
+                    Tween(optionBtn, {BackgroundColor3 = GGMenu.Theme.BgCard})
                 end)
                 
                 optionBtn.MouseLeave:Connect(function()
-                    Tween(optionBtn, {BackgroundColor3 = GGMenu.CurrentTheme.BgDark})
+                    Tween(optionBtn, {BackgroundColor3 = GGMenu.Theme.BgDark})
                 end)
                 
                 optionBtn.InputBegan:Connect(function(input)
@@ -546,7 +501,6 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                         dropdownButton.Text = option
                         closeDropdown()
                         
-                        -- Salvar em configuração se fornecido
                         if configKey and configTable then
                             configTable:Set(configKey, option)
                         end
@@ -583,15 +537,9 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         GetValue = function() return dropdownButton.Text end,
         SetValue = function(value) 
             dropdownButton.Text = value
-            
-            -- Salvar em configuração se fornecido
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
-        end,
-        Destroy = function(self)
-            clickConnection:Disconnect()
-            container:Destroy()
         end
     }
     
@@ -599,11 +547,11 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
 end
 
 -- ======================================
--- FPS BAR RESPONSIVA
+-- FPS BAR
 -- ======================================
 function GGMenu.CreateFPSBar()
     local screenGui = Create("ScreenGui", {
-        Parent = CoreGui,
+        Parent = GetGuiParent(),
         Name = "GGMenu_FPSBar",
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -617,12 +565,12 @@ function GGMenu.CreateFPSBar()
         Parent = screenGui,
         Size = ResponsiveSize(barWidth, barHeight),
         Position = UDim2.new(0, 10, 1, -(barHeight + 10)),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         BackgroundTransparency = 0.1,
         BorderSizePixel = 0
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 6 : 8)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Accent, Thickness = isMobile and 1 : 1.2})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 6 or 8)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = isMobile and 1 or 1.2})
     })
     
     local textLabel = Create("TextLabel", {
@@ -631,8 +579,8 @@ function GGMenu.CreateFPSBar()
         Position = UDim2.new(0, 8, 0, 0),
         BackgroundTransparency = 1,
         Text = "GGMenu | Loading...",
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
-        TextSize = ResponsiveFontSize(isMobile and 11 : 13),
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = ResponsiveFontSize(isMobile and 11 or 13),
         Font = GGMenu.Fonts.Code,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextStrokeTransparency = 0.7
@@ -643,13 +591,13 @@ function GGMenu.CreateFPSBar()
         Size = ResponsiveSize(6, 6),
         Position = UDim2.new(1, -12, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = GGMenu.CurrentTheme.Success,
+        BackgroundColor3 = GGMenu.Theme.Success,
         BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)})
     })
     
-    -- Sistema de arrastar manual com suporte a touch
+    -- Sistema de arrastar
     local dragging = false
     local dragStart, startPos
     
@@ -700,11 +648,11 @@ function GGMenu.CreateFPSBar()
         
         -- Atualizar cor
         if fps >= 50 then
-            statusDot.BackgroundColor3 = GGMenu.CurrentTheme.Success
+            statusDot.BackgroundColor3 = GGMenu.Theme.Success
         elseif fps >= 30 then
-            statusDot.BackgroundColor3 = GGMenu.CurrentTheme.Warning
+            statusDot.BackgroundColor3 = GGMenu.Theme.Warning
         else
-            statusDot.BackgroundColor3 = GGMenu.CurrentTheme.Danger
+            statusDot.BackgroundColor3 = GGMenu.Theme.Danger
         end
         
         -- Pegar ping
@@ -725,22 +673,20 @@ function GGMenu.CreateFPSBar()
         )
     end)
     
-    local fpsBar = {
+    return {
         Gui = screenGui,
         Bar = bar,
         SetVisible = function(self, visible) screenGui.Enabled = visible end,
         Destroy = function(self) screenGui:Destroy() end
     }
-    
-    return fpsBar
 end
 
 -- ======================================
--- JANELA COM TABS RESPONSIVA
+-- JANELA COM TABS
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
-        Parent = CoreGui,
+        Parent = GetGuiParent(),
         Name = "GGMenu_Window",
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -748,27 +694,27 @@ function GGMenu.CreateWindow(title)
     })
     
     local windowWidth = isMobile and 380 or 500
-    local windowHeight = isMobile and 500 : 550
+    local windowHeight = isMobile and 500 or 550
     
     local mainFrame = Create("Frame", {
         Parent = screenGui,
         Size = ResponsiveSize(windowWidth, windowHeight),
         Position = UDim2.new(0.5, -windowWidth/2, 0.5, -windowHeight/2),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 10 : 12)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Accent, Thickness = isMobile and 1.5 : 2})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 10 or 12)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = isMobile and 1.5 or 2})
     })
     
-    -- Header (área de drag)
+    -- Header
     local header = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, 0, 0, isMobile and 50 : 60),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgDark,
+        Size = UDim2.new(1, 0, 0, isMobile and 50 or 60),
+        BackgroundColor3 = GGMenu.Theme.BgDark,
         BorderSizePixel = 0
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 10 : 12, 0, 0)})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 10 or 12, 0, 0)})
     })
     
     local titleLabel = Create("TextLabel", {
@@ -777,8 +723,8 @@ function GGMenu.CreateWindow(title)
         Position = UDim2.new(0, 15, 0, 0),
         BackgroundTransparency = 1,
         Text = title,
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
-        TextSize = ResponsiveFontSize(isMobile and 18 : 20),
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = ResponsiveFontSize(isMobile and 18 or 20),
         Font = GGMenu.Fonts.Title,
         TextXAlignment = Enum.TextXAlignment.Left
     })
@@ -788,32 +734,32 @@ function GGMenu.CreateWindow(title)
         Size = ResponsiveSize(32, 32),
         Position = UDim2.new(1, -35, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = "×",
-        TextColor3 = GGMenu.CurrentTheme.TextPrimary,
-        TextSize = ResponsiveFontSize(isMobile and 20 : 24),
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = ResponsiveFontSize(isMobile and 20 or 24),
         Font = Enum.Font.GothamBold,
         AutoButtonColor = false
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 : 6)}),
-        Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 or 6)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
     closeButton.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
-            Tween(closeButton, {BackgroundColor3 = GGMenu.CurrentTheme.Danger, TextColor3 = Color3.new(1, 1, 1)})
+            Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.Danger, TextColor3 = Color3.new(1, 1, 1)})
         end
     end)
     
     closeButton.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
            input.UserInputType == Enum.UserInputType.Touch then
-            Tween(closeButton, {BackgroundColor3 = GGMenu.CurrentTheme.BgCard, TextColor3 = GGMenu.CurrentTheme.TextPrimary})
+            Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.BgCard, TextColor3 = GGMenu.Theme.TextPrimary})
         end
     end)
     
-    -- Sistema de drag manual com suporte a touch
+    -- Drag
     local dragging = false
     local dragStart, startPos
     
@@ -847,8 +793,8 @@ function GGMenu.CreateWindow(title)
     -- Área de tabs
     local tabsContainer = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, 0, 0, isMobile and 36 : 40),
-        Position = UDim2.new(0, 0, 0, isMobile and 50 : 60),
+        Size = UDim2.new(1, 0, 0, isMobile and 36 or 40),
+        Position = UDim2.new(0, 0, 0, isMobile and 50 or 60),
         BackgroundTransparency = 1
     })
     
@@ -865,8 +811,8 @@ function GGMenu.CreateWindow(title)
     -- Área de conteúdo
     local contentArea = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, -20, 1, -(isMobile and 96 : 110)),
-        Position = UDim2.new(0, 10, 0, isMobile and 91 : 105),
+        Size = UDim2.new(1, -20, 1, -(isMobile and 96 or 110)),
+        Position = UDim2.new(0, 10, 0, isMobile and 91 or 105),
         BackgroundTransparency = 1
     })
     
@@ -883,22 +829,22 @@ function GGMenu.CreateWindow(title)
         
         AddTab = function(self, tabName)
             local tabId = #tabs + 1
-            local tabWidth = isMobile and 70 : 80
+            local tabWidth = isMobile and 70 or 80
             
             -- Criar botão da tab
             local tabButton = Create("TextButton", {
                 Parent = tabsList,
-                Size = ResponsiveSize(tabWidth, isMobile and 30 : 32),
+                Size = ResponsiveSize(tabWidth, isMobile and 30 or 32),
                 Position = UDim2.new(0, ((tabId-1) * (tabWidth + 5)), 0, 0),
-                BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
+                BackgroundColor3 = GGMenu.Theme.BgCard,
                 Text = tabName,
-                TextColor3 = GGMenu.CurrentTheme.TextSecondary,
-                TextSize = ResponsiveFontSize(isMobile and 11 : 13),
+                TextColor3 = GGMenu.Theme.TextSecondary,
+                TextSize = ResponsiveFontSize(isMobile and 11 or 13),
                 Font = GGMenu.Fonts.Body,
                 AutoButtonColor = false
             }, {
-                Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 : 6)}),
-                Create("UIStroke", {Color = GGMenu.CurrentTheme.Border, Thickness = 1})
+                Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 4 or 6)}),
+                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
             
             -- Atualizar tamanho do canvas
@@ -909,8 +855,8 @@ function GGMenu.CreateWindow(title)
                 Parent = contentArea,
                 Size = UDim2.new(1, 0, 1, 0),
                 BackgroundTransparency = 1,
-                ScrollBarThickness = isMobile and 6 : 4,
-                ScrollBarImageColor3 = GGMenu.CurrentTheme.Accent,
+                ScrollBarThickness = isMobile and 6 or 4,
+                ScrollBarImageColor3 = GGMenu.Theme.Accent,
                 CanvasSize = UDim2.new(0, 0, 0, 0),
                 BorderSizePixel = 0,
                 Visible = false
@@ -925,7 +871,7 @@ function GGMenu.CreateWindow(title)
             local listLayout = Create("UIListLayout", {
                 Parent = componentsContainer,
                 SortOrder = Enum.SortOrder.LayoutOrder,
-                Padding = UDim.new(0, isMobile and 3 : 5)
+                Padding = UDim.new(0, isMobile and 3 or 5)
             })
             
             listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
@@ -934,19 +880,17 @@ function GGMenu.CreateWindow(title)
             
             -- Função para mostrar/ocultar tab
             local function showTab()
-                -- Esconder todas as tabs
                 for _, tabData in pairs(tabs) do
                     tabData.Content.Visible = false
                     Tween(tabData.Button, {
-                        BackgroundColor3 = GGMenu.CurrentTheme.BgCard,
-                        TextColor3 = GGMenu.CurrentTheme.TextSecondary
+                        BackgroundColor3 = GGMenu.Theme.BgCard,
+                        TextColor3 = GGMenu.Theme.TextSecondary
                     })
                 end
                 
-                -- Mostrar esta tab
                 tabContent.Visible = true
                 Tween(tabButton, {
-                    BackgroundColor3 = GGMenu.CurrentTheme.Accent,
+                    BackgroundColor3 = GGMenu.Theme.Accent,
                     TextColor3 = Color3.new(1, 1, 1)
                 })
                 
@@ -963,13 +907,13 @@ function GGMenu.CreateWindow(title)
             
             tabButton.MouseEnter:Connect(function()
                 if currentTab ~= tabId then
-                    Tween(tabButton, {BackgroundColor3 = GGMenu.CurrentTheme.BgCardHover})
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
                 end
             end)
             
             tabButton.MouseLeave:Connect(function()
                 if currentTab ~= tabId then
-                    Tween(tabButton, {BackgroundColor3 = GGMenu.CurrentTheme.BgCard})
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCard})
                 end
             end)
             
@@ -990,13 +934,13 @@ function GGMenu.CreateWindow(title)
                 showTab()
             end
             
-            -- Retornar interface para adicionar componentes
+            -- Retornar interface
             local tabInterface = {}
             
             function tabInterface:AddSection(title)
                 local section = Create("Frame", {
                     Parent = componentsContainer,
-                    Size = UDim2.new(1, 0, 0, isMobile and 30 : 35),
+                    Size = UDim2.new(1, 0, 0, isMobile and 30 or 35),
                     BackgroundTransparency = 1,
                     LayoutOrder = 0
                 })
@@ -1006,8 +950,8 @@ function GGMenu.CreateWindow(title)
                     Size = UDim2.new(1, 0, 1, 0),
                     BackgroundTransparency = 1,
                     Text = title:upper(),
-                    TextColor3 = GGMenu.CurrentTheme.Accent,
-                    TextSize = ResponsiveFontSize(isMobile and 12 : 14),
+                    TextColor3 = GGMenu.Theme.Accent,
+                    TextSize = ResponsiveFontSize(isMobile and 12 or 14),
                     Font = GGMenu.Fonts.Header,
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
@@ -1029,12 +973,12 @@ function GGMenu.CreateWindow(title)
                 function sectionInterface:AddLabel(text)
                     local label = Create("TextLabel", {
                         Parent = componentsContainer,
-                        Size = UDim2.new(1, 0, 0, isMobile and 22 : 25),
+                        Size = UDim2.new(1, 0, 0, isMobile and 22 or 25),
                         LayoutOrder = 0,
                         BackgroundTransparency = 1,
                         Text = text,
-                        TextColor3 = GGMenu.CurrentTheme.TextSecondary,
-                        TextSize = ResponsiveFontSize(isMobile and 11 : 13),
+                        TextColor3 = GGMenu.Theme.TextSecondary,
+                        TextSize = ResponsiveFontSize(isMobile and 11 or 13),
                         Font = GGMenu.Fonts.Body,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
@@ -1044,7 +988,7 @@ function GGMenu.CreateWindow(title)
                 function sectionInterface:AddSpacer(height)
                     local spacer = Create("Frame", {
                         Parent = componentsContainer,
-                        Size = UDim2.new(1, 0, 0, height or (isMobile and 15 : 20)),
+                        Size = UDim2.new(1, 0, 0, height or (isMobile and 15 or 20)),
                         LayoutOrder = 0,
                         BackgroundTransparency = 1
                     })
@@ -1054,30 +998,30 @@ function GGMenu.CreateWindow(title)
                 function sectionInterface:AddButton(text, callback)
                     local button = Create("TextButton", {
                         Parent = componentsContainer,
-                        Size = UDim2.new(1, 0, 0, isMobile and 36 : 40),
+                        Size = UDim2.new(1, 0, 0, isMobile and 36 or 40),
                         LayoutOrder = 0,
-                        BackgroundColor3 = GGMenu.CurrentTheme.Accent,
+                        BackgroundColor3 = GGMenu.Theme.Accent,
                         Text = text,
                         TextColor3 = Color3.new(1, 1, 1),
-                        TextSize = ResponsiveFontSize(isMobile and 12 : 14),
+                        TextSize = ResponsiveFontSize(isMobile and 12 or 14),
                         Font = GGMenu.Fonts.Body,
                         AutoButtonColor = false
                     }, {
-                        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 6 : 8)}),
-                        Create("UIStroke", {Color = GGMenu.CurrentTheme.Accent, Thickness = 1})
+                        Create("UICorner", {CornerRadius = UDim.new(0, isMobile and 6 or 8)}),
+                        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1})
                     })
                     
                     button.InputBegan:Connect(function(input)
                         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
                            input.UserInputType == Enum.UserInputType.Touch then
-                            Tween(button, {BackgroundColor3 = GGMenu.CurrentTheme.BgCardHover})
+                            Tween(button, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
                         end
                     end)
                     
                     button.InputEnded:Connect(function(input)
                         if input.UserInputType == Enum.UserInputType.MouseButton1 or 
                            input.UserInputType == Enum.UserInputType.Touch then
-                            Tween(button, {BackgroundColor3 = GGMenu.CurrentTheme.Accent})
+                            Tween(button, {BackgroundColor3 = GGMenu.Theme.Accent})
                             if callback then callback() end
                         end
                     end)
@@ -1094,10 +1038,6 @@ function GGMenu.CreateWindow(title)
         SetVisible = function(self, visible)
             mainFrame.Visible = visible
             windowVisible = visible
-        end,
-        
-        Destroy = function(self)
-            screenGui:Destroy()
         end
     }
     
@@ -1116,94 +1056,39 @@ function GGMenu.CreateWindow(title)
 end
 
 -- ======================================
--- INICIALIZAÇÃO COMPLETA
+-- INICIALIZAÇÃO SIMPLES
 -- ======================================
 function GGMenu:Init(options)
     options = options or {}
-    local showFPSBar = options.FPSBar ~= false
-    local configName = options.ConfigName or "Default"
-    local saveMethod = options.SaveMethod or "memory"
-    
-    -- Configurar método de salvamento
-    GGMenu.SetSaveMethod(saveMethod)
     
     local components = {}
     
-    -- FPS Bar (opcional)
-    if showFPSBar then
+    -- FPS Bar
+    if options.FPSBar ~= false then
         components.FPSBar = self.CreateFPSBar()
     end
     
-    -- Janela (começa invisível)
-    components.Window = self.CreateWindow("GGMenu v6.0")
+    -- Janela
+    components.Window = self.CreateWindow("GGMenu v6.1")
     
-    -- Hotkey para mostrar/ocultar (INSERT para PC, toque duplo para mobile)
+    -- Hotkey para PC
     if not isMobile then
         local toggleConnection = UserInputService.InputBegan:Connect(function(input)
             if input.KeyCode == Enum.KeyCode.Insert then
                 components.Window:SetVisible(not components.Window.Frame.Visible)
             end
         end)
-        
         components._toggleConnection = toggleConnection
-    else
-        -- Para mobile: botão flutuante
-        local floatingButton = Create("ImageButton", {
-            Parent = CoreGui,
-            Size = ResponsiveSize(50, 50),
-            Position = UDim2.new(1, -60, 1, -60),
-            BackgroundColor3 = GGMenu.CurrentTheme.Accent,
-            Image = "rbxassetid://10734949127", -- Ícone de menu
-            ScaleType = Enum.ScaleType.Fit,
-            BackgroundTransparency = 0.3
-        }, {
-            Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-            Create("UIStroke", {Color = GGMenu.CurrentTheme.Accent, Thickness = 2})
-        })
-        
-        floatingButton.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.Touch then
-                components.Window:SetVisible(not components.Window.Frame.Visible)
-            end
-        end)
-        
-        components._floatingButton = floatingButton
     end
     
-    -- Configuração padrão
-    components.Config = GGMenu.CreateConfig(configName, {})
-    
-    -- Conectar para limpeza
-    components.DestroyAll = function()
-        if components._toggleConnection then
-            components._toggleConnection:Disconnect()
-        end
-        if components._floatingButton then
-            components._floatingButton:Destroy()
-        end
-        if components.FPSBar then
-            components.FPSBar:Destroy()
-        end
-        if components.Window then
-            components.Window:Destroy()
-        end
-        GGMenu.SaveConfigs()
-    end
-    
-    print("GGMenu v6.0 loaded!")
-    print("Device:", isMobile and "Mobile" .. (isTablet and " (Tablet)" or "") or "Desktop")
-    print("Executor:", GetExecutor())
-    print("Config:", configName)
-    if not isMobile then
-        print("Press INSERT to show/hide menu")
-    else
-        print("Tap the floating button to show/hide menu")
-    end
+    print("GGMenu v6.1 loaded!")
+    print("Device:", isMobile and "Mobile" or "Desktop")
+    print("Press INSERT to toggle menu")
     
     return components
 end
 
--- Versão minimalista
+-- Biblioteca minimalista
 function GGMenu:CreateLibrary()
     return {
         CreateWindow = GGMenu.CreateWindow,
@@ -1212,12 +1097,8 @@ function GGMenu:CreateLibrary()
         CreateSlider = GGMenu.CreateSlider,
         CreateDropdown = GGMenu.CreateDropdown,
         CreateConfig = GGMenu.CreateConfig,
-        SetTheme = GGMenu.SetTheme,
-        SetSaveMethod = GGMenu.SetSaveMethod,
-        SaveConfigs = GGMenu.SaveConfigs,
         Theme = GGMenu.Theme,
-        Fonts = GGMenu.Fonts,
-        Responsive = GGMenu.Responsive
+        Fonts = GGMenu.Fonts
     }
 end
 
