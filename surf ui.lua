@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.2 (Apenas PC) -  red tube
+-- GGMenu UI Library v6.2 (Apenas PC) - CORRIGIDA COMPLETA
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -10,16 +10,19 @@ local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 
--- Sistema SEGURO para obter parent (CORREÇÃO 1)
+-- Cache para parent (CORREÇÃO 4)
+local cachedGuiParent = nil
 local function GetGuiParent()
+    if cachedGuiParent then return cachedGuiParent end
+    
     -- Tentar CoreGui primeiro com pcall
     local success, coreGui = pcall(function()
         return game:GetService("CoreGui")
     end)
     
     if success and coreGui then
+        cachedGuiParent = coreGui
         return coreGui
     end
     
@@ -35,6 +38,7 @@ local function GetGuiParent()
         playerGui = player:WaitForChild("PlayerGui")
     end
     
+    cachedGuiParent = playerGui
     return playerGui
 end
 
@@ -192,7 +196,7 @@ end
 GGMenu.LoadConfigs()
 
 -- ======================================
--- COMPONENTES BASE (COM CALLBACK PARA TOGGLE - CORREÇÃO 2)
+-- COMPONENTES BASE (CORREÇÃO 1 - COM CALLBACK)
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable, callback)
     local container = Create("Frame", {
@@ -253,7 +257,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
                 configTable:Set(configKey, value)
             end
             
-            -- Executar callback se fornecido
+            -- Executar callback se fornecido (CORREÇÃO 1)
             if callback then
                 callback(value)
             end
@@ -662,7 +666,7 @@ function GGMenu.CreateFPSBar()
 end
 
 -- ======================================
--- JANELA COM TABS
+-- JANELA COM TABS (COM INSERT PARA ABRIR/FECHAR)
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
@@ -678,7 +682,8 @@ function GGMenu.CreateWindow(title)
         Size = UDim2.new(0, 500, 0, 550),
         Position = UDim2.new(0.5, -250, 0.5, -275),
         BackgroundColor3 = GGMenu.Theme.BgCard,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        Visible = false -- Começar invisível
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
@@ -787,13 +792,13 @@ function GGMenu.CreateWindow(title)
     -- Variáveis da janela
     local tabs = {}
     local currentTab = nil
-    local windowVisible = false
     
     -- Funções da janela
     local window = {
         Gui = screenGui,
         Frame = mainFrame,
         Tabs = {},
+        Visible = false,
         
         AddTab = function(self, tabName)
             local tabId = #tabs + 1
@@ -896,7 +901,7 @@ function GGMenu.CreateWindow(title)
                 showTab()
             end
             
-            -- Retornar interface
+            -- Retornar interface (COM CALLBACK - CORREÇÃO 1)
             local tabInterface = {}
             
             function tabInterface:AddSection(title)
@@ -920,8 +925,9 @@ function GGMenu.CreateWindow(title)
                 
                 local sectionInterface = {}
                 
-                function sectionInterface:AddToggle(text, default, configKey, configTable)
-                    return GGMenu.CreateToggle(componentsContainer, text, default, configKey, configTable)
+                -- CORREÇÃO 1: AddToggle agora aceita callback
+                function sectionInterface:AddToggle(text, default, configKey, configTable, callback)
+                    return GGMenu.CreateToggle(componentsContainer, text, default, configKey, configTable, callback)
                 end
                 
                 function sectionInterface:AddSlider(text, min, max, default, configKey, configTable)
@@ -996,265 +1002,46 @@ function GGMenu.CreateWindow(title)
         
         SetVisible = function(self, visible)
             mainFrame.Visible = visible
-            windowVisible = visible
+            self.Visible = visible
+        end,
+        
+        Toggle = function(self)
+            self.Visible = not self.Visible
+            mainFrame.Visible = self.Visible
+            return self.Visible
         end
     }
     
-    -- Fechar janela
+    -- Fechar janela com botão X
     closeButton.MouseButton1Click:Connect(function()
         window:SetVisible(false)
     end)
-    
-    -- Começar invisível
-    window:SetVisible(false)
     
     return window
 end
 
 -- ======================================
--- INICIALIZAÇÃO SIMPLES (REVISADA - CORREÇÃO 2)
+-- NOTIFICAÇÕES MELHORADAS (CORREÇÃO 2)
 -- ======================================
-function GGMenu:Init()
-    local components = {}
-    
-    -- FPS Bar
-    components.FPSBar = self.CreateFPSBar()
-    
-    -- Janela principal
-    components.MainWindow = self.CreateWindow("GGMenu v6.2")
-    
-    -- Toggle key para mostrar/ocultar (F11)
-    local toggleKey = Enum.KeyCode.F11
-    local windowVisible = false
-    
-    UserInputService.InputBegan:Connect(function(input)
-        if input.KeyCode == toggleKey then
-            windowVisible = not windowVisible
-            components.MainWindow:SetVisible(windowVisible)
-            
-            -- Animação de entrada/saída
-            if windowVisible then
-                components.MainWindow.Frame.Position = UDim2.new(0.5, -250, 0.5, -275)
-            end
-        end
-    end)
-    
-    -- Tab de configurações
-    local configTab = components.MainWindow:AddTab("Configurações")
-    local configSection = configTab:AddSection("Aparência")
-    
-    configSection:AddLabel("Tema personalizado:")
-    
-    local themeConfig = self.CreateConfig("UI_Theme", {
-        Accent = self.Theme.Accent,
-        Background = self.Theme.BgCard,
-        TextColor = self.Theme.TextPrimary
-    })
-    
-    -- Botões de tema rápido
-    local themes = {
-        {
-            name = "Vermelho Padrão",
-            accent = Color3.fromRGB(232, 84, 84),
-            bg = Color3.fromRGB(18, 18, 22)
-        },
-        {
-            name = "Azul Neon",
-            accent = Color3.fromRGB(0, 170, 255),
-            bg = Color3.fromRGB(10, 15, 30)
-        },
-        {
-            name = "Verde",
-            accent = Color3.fromRGB(72, 199, 142),
-            bg = Color3.fromRGB(15, 25, 20)
-        },
-        {
-            name = "Roxo",
-            accent = Color3.fromRGB(155, 89, 182),
-            bg = Color3.fromRGB(25, 20, 35)
-        }
-    }
-    
-    for _, theme in ipairs(themes) do
-        configSection:AddButton("Aplicar " .. theme.name, function()
-            self.Theme.Accent = theme.accent
-            self.Theme.BgCard = theme.bg
-            themeConfig:Set("Accent", theme.accent)
-            themeConfig:Set("Background", theme.bg)
-            
-            -- Notificação
-            GGMenu.Notify("Tema", "Tema " .. theme.name .. " aplicado!", 2)
-        end)
-    end
-    
-    -- Tab de informações
-    local infoTab = components.MainWindow:AddTab("Informações")
-    local infoSection = infoTab:AddSection("Sistema")
-    
-    local executor = GetExecutor()
-    infoSection:AddLabel("Executor: " .. executor)
-    infoSection:AddLabel("Versão UI: 6.2 (PC)")
-    infoSection:AddLabel("Data: " .. os.date("%d/%m/%Y"))
-    infoSection:AddLabel("Usuário: " .. Players.LocalPlayer.Name)
-    
-    -- Tab de utilitários
-    local utilsTab = components.MainWindow:AddTab("Utilitários")
-    local gameSection = utilsTab:AddSection("Jogo")
-    
-    gameSection:AddButton("Reiniciar Personagem", function()
-        Players.LocalPlayer.Character:BreakJoints()
-    end)
-    
-    gameSection:AddButton("Copiar Localização", function()
-        local char = Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local pos = char.HumanoidRootPart.Position
-            setclipboard(string.format("Vector3.new(%.2f, %.2f, %.2f)", pos.X, pos.Y, pos.Z))
-        end
-    end)
-    
-    -- Configuração do FPS Bar (SIMPLIFICADA - CORREÇÃO 2)
-    local fpsSection = configTab:AddSection("FPS Bar")
-    
-    local fpsConfig = self.CreateConfig("FPS_Settings", {
-        Enabled = true,
-        PositionX = 10,
-        PositionY = -42
-    })
-    
-    -- Usar callback diretamente (SEM duplicação de lógica)
-    local fpsToggle = fpsSection:AddToggle("Mostrar FPS Bar", fpsConfig:Get("Enabled"), "Enabled", fpsConfig,
-        function(value)
-            components.FPSBar:SetVisible(value)
-        end
-    )
-    
-    -- Inicialmente esconder a janela
-    components.MainWindow:SetVisible(false)
-    
-    -- Retornar componentes
-    return {
-        FPSBar = components.FPSBar,
-        Window = components.MainWindow,
-        ToggleWindow = function()
-            windowVisible = not windowVisible
-            components.MainWindow:SetVisible(windowVisible)
-        end,
-        Show = function()
-            windowVisible = true
-            components.MainWindow:SetVisible(true)
-        end,
-        Hide = function()
-            windowVisible = false
-            components.MainWindow:SetVisible(false)
-        end,
-        Close = function()
-            components.FPSBar:Destroy()
-            components.MainWindow.Gui:Destroy()
-        end
-    }
-end
+local NotifySingleton = nil
 
--- ======================================
--- FUNÇÃO DE AJUDA / INSTRUÇÕES
--- ======================================
-function GGMenu.CreateExample()
-    local ui = GGMenu:Init()
-    
-    -- Tab de exemplo
-    local exampleTab = ui.Window:AddTab("Exemplo")
-    
-    -- Seção de controles
-    local controls = exampleTab:AddSection("Controles de Exemplo")
-    
-    local config = GGMenu.CreateConfig("Example_Config", {
-        toggle1 = true,
-        sliderValue = 50,
-        dropdownOption = "Opção 1"
-    })
-    
-    -- Criar controles com callback (opcional)
-    local toggle1 = controls:AddToggle("Toggle Exemplo", config:Get("toggle1"), "toggle1", config,
-        function(value)
-            print("Toggle mudou para:", value)
-        end
-    )
-    
-    local slider1 = controls:AddSlider("Slider Exemplo", 0, 100, config:Get("sliderValue"), "sliderValue", config)
-    
-    local options = {"Opção 1", "Opção 2", "Opção 3"}
-    local dropdown1 = controls:AddDropdown("Dropdown Exemplo", options, config:Get("dropdownOption"), "dropdownOption", config)
-    
-    -- Botões de ação
-    controls:AddSpacer(10)
-    
-    controls:AddButton("Mostrar Notificação", function()
-        GGMenu.Notify("Exemplo", "Esta é uma notificação de exemplo!", 3)
-    end)
-    
-    controls:AddButton("Copiar Config", function()
-        local json = game:GetService("HttpService"):JSONEncode(config.Data)
-        if setclipboard then
-            setclipboard(json)
-            GGMenu.Notify("Copiado", "Configuração copiada para a área de transferência!", 2)
-        end
-    end)
-    
-    return ui
-end
-
--- ======================================
--- API PÚBLICA DA GGMenu
--- ======================================
-function GGMenu.new(title)
-    local self = setmetatable({}, GGMenu)
-    
-    -- Inicializar interface
-    local ui = GGMenu:Init()
-    
-    -- Métodos públicos
-    self.Show = function()
-        ui.Window:SetVisible(true)
-    end
-    
-    self.Hide = function()
-        ui.Window:SetVisible(false)
-    end
-    
-    self.Toggle = function()
-        ui.ToggleWindow()
-    end
-    
-    self.Destroy = function()
-        ui.Close()
-    end
-    
-    self.GetWindow = function()
-        return ui.Window
-    end
-    
-    self.GetFPSBar = function()
-        return ui.FPSBar
-    end
-    
-    return self
-end
-
--- ======================================
--- MÉTODOS GLOBAIS (OPCIONAL)
--- ======================================
 function GGMenu.Notify(title, text, duration)
     duration = duration or 3
     
-    -- Criar notificação simples
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "GGMenu_Notify"
-    screenGui.Parent = GetGuiParent()
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.DisplayOrder = 3000
+    -- Criar singleton se não existir (CORREÇÃO 2)
+    if not NotifySingleton then
+        NotifySingleton = Create("ScreenGui", {
+            Parent = GetGuiParent(),
+            Name = "GGMenu_NotifyContainer",
+            ResetOnSpawn = false,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            DisplayOrder = 3000
+        })
+    end
     
+    -- Criar notificação
     local frame = Create("Frame", {
-        Parent = screenGui,
+        Parent = NotifySingleton,
         Size = UDim2.new(0, 300, 0, 80),
         Position = UDim2.new(1, -310, 1, -90),
         BackgroundColor3 = GGMenu.Theme.BgCard,
@@ -1301,21 +1088,287 @@ function GGMenu.Notify(title, text, duration)
         }, 0.3)
         
         task.wait(0.3)
-        screenGui:Destroy()
+        frame:Destroy()
     end)
 end
 
 -- ======================================
--- FUNÇÃO AUXILIAR PARA ATUALIZAR TEMA (CORREÇÃO 3 - OPCIONAL)
+-- INICIALIZAÇÃO COMPLETA (COM INSERT PARA ABRIR)
 -- ======================================
-function GGMenu.RefreshTheme()
-    -- Esta função pode ser implementada se quiser
-    -- atualizar dinamicamente todos os elementos
-    -- Nota: Por enquanto, temas só afetam novos elementos
-    print("GGMenu: Use GGMenu.Theme para configurar temas antes de criar elementos")
+local CurrentUI = nil
+local UIKey = Enum.KeyCode.Insert -- Tecla para abrir/fechar
+local UIKeyActive = true
+
+function GGMenu:Init()
+    if CurrentUI then
+        return CurrentUI
+    end
+    
+    local components = {}
+    
+    -- FPS Bar
+    components.FPSBar = self.CreateFPSBar()
+    
+    -- Janela principal
+    components.MainWindow = self.CreateWindow("GGMenu v6.2")
+    
+    -- Sistema de toggle com Insert
+    UserInputService.InputBegan:Connect(function(input)
+        if UIKeyActive and input.KeyCode == UIKey then
+            components.MainWindow:Toggle()
+        end
+    end)
+    
+    -- Tab de configurações
+    local configTab = components.MainWindow:AddTab("Configurações")
+    
+    -- Seção de Interface
+    local interfaceSection = configTab:AddSection("Interface")
+    
+    local uiConfig = self.CreateConfig("UI_Settings", {
+        FPSBarVisible = true,
+        UIKey = "Insert",
+        UIEnabled = true
+    })
+    
+    -- Toggle FPS Bar (COM CALLBACK - FUNCIONANDO AGORA)
+    interfaceSection:AddToggle("Mostrar FPS Bar", uiConfig:Get("FPSBarVisible"), "FPSBarVisible", uiConfig,
+        function(value)
+            components.FPSBar:SetVisible(value)
+        end
+    )
+    
+    -- Toggle UI Key
+    interfaceSection:AddToggle("Tecla Insert Ativa", uiConfig:Get("UIEnabled"), "UIEnabled", uiConfig,
+        function(value)
+            UIKeyActive = value
+        end
+    )
+    
+    -- Seção de Aparência
+    local appearanceSection = configTab:AddSection("Aparência")
+    
+    local themeConfig = self.CreateConfig("UI_Theme", {
+        Accent = self.Theme.Accent,
+        Background = self.Theme.BgCard,
+        TextColor = self.Theme.TextPrimary
+    })
+    
+    -- Botões de tema rápido (AVISO SOBRE TEMA - CORREÇÃO 3)
+    local themes = {
+        {
+            name = "Vermelho Padrão",
+            accent = Color3.fromRGB(232, 84, 84),
+            bg = Color3.fromRGB(18, 18, 22)
+        },
+        {
+            name = "Azul Neon",
+            accent = Color3.fromRGB(0, 170, 255),
+            bg = Color3.fromRGB(10, 15, 30)
+        },
+        {
+            name = "Verde",
+            accent = Color3.fromRGB(72, 199, 142),
+            bg = Color3.fromRGB(15, 25, 20)
+        }
+    }
+    
+    for _, theme in ipairs(themes) do
+        appearanceSection:AddButton("Tema " .. theme.name, function()
+            self.Theme.Accent = theme.accent
+            self.Theme.BgCard = theme.bg
+            themeConfig:Set("Accent", theme.accent)
+            themeConfig:Set("Background", theme.bg)
+            
+            -- AVISO sobre tema não atualizar elementos existentes
+            self.Notify("Tema " .. theme.name, "Aplicado! (Apenas novos elementos usarão este tema)", 3)
+        end)
+    end
+    
+    -- Tab de informações
+    local infoTab = components.MainWindow:AddTab("Informações")
+    local systemSection = infoTab:AddSection("Sistema")
+    
+    local executor = GetExecutor()
+    systemSection:AddLabel("Executor: " .. executor)
+    systemSection:AddLabel("Versão UI: 6.2 (PC Only)")
+    systemSection:AddLabel("Data: " .. os.date("%d/%m/%Y"))
+    systemSection:AddLabel("Usuário: " .. Players.LocalPlayer.Name)
+    systemSection:AddLabel("")
+    systemSection:AddLabel("🔒 IMPORTANTE:")
+    systemSection:AddLabel("- Temas só afetam novos elementos")
+    systemSection:AddLabel("- Use Insert para abrir/fechar")
+    systemSection:AddLabel("- Arraste a FPS Bar para mover")
+    
+    -- Tab de utilitários
+    local utilsTab = components.MainWindow:AddTab("Utilitários")
+    local gameSection = utilsTab:AddSection("Jogo")
+    
+    gameSection:AddButton("Reiniciar Personagem", function()
+        local char = Players.LocalPlayer.Character
+        if char then
+            char:BreakJoints()
+            self.Notify("Personagem", "Reiniciado com sucesso!", 2)
+        end
+    end)
+    
+    gameSection:AddButton("Copiar Localização", function()
+        local char = Players.LocalPlayer.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            local pos = char.HumanoidRootPart.Position
+            if setclipboard then
+                setclipboard(string.format("Vector3.new(%.2f, %.2f, %.2f)", pos.X, pos.Y, pos.Z))
+                self.Notify("Copiado", "Localização copiada para clipboard!", 2)
+            end
+        end
+    end)
+    
+    -- Armazenar e retornar
+    local uiInstance = {
+        FPSBar = components.FPSBar,
+        Window = components.MainWindow,
+        SetKey = function(keyCode)
+            UIKey = keyCode
+            return uiInstance
+        end,
+        Toggle = function()
+            return components.MainWindow:Toggle()
+        end,
+        Show = function()
+            components.MainWindow:SetVisible(true)
+        end,
+        Hide = function()
+            components.MainWindow:SetVisible(false)
+        end,
+        Destroy = function()
+            components.FPSBar:Destroy()
+            components.MainWindow.Gui:Destroy()
+            if NotifySingleton then
+                NotifySingleton:Destroy()
+                NotifySingleton = nil
+            end
+            CurrentUI = nil
+        end
+    }
+    
+    CurrentUI = uiInstance
+    return uiInstance
+end
+
+-- ======================================
+-- API PÚBLICA SIMPLIFICADA
+-- ======================================
+function GGMenu.new(title)
+    title = title or "GGMenu v6.2"
+    
+    local self = setmetatable({}, GGMenu)
+    
+    -- Inicializar interface
+    local ui = GGMenu:Init()
+    
+    -- Métodos públicos
+    self.Show = function()
+        ui.Show()
+    end
+    
+    self.Hide = function()
+        ui.Hide()
+    end
+    
+    self.Toggle = function()
+        ui.Toggle()
+    end
+    
+    self.Destroy = function()
+        ui.Destroy()
+    end
+    
+    self.SetKey = function(keyCode)
+        ui.SetKey(keyCode)
+        return self
+    end
+    
+    self.GetWindow = function()
+        return ui.Window
+    end
+    
+    self.GetFPSBar = function()
+        return ui.FPSBar
+    end
+    
+    return self
+end
+
+-- ======================================
+-- FUNÇÃO DE EXEMPLO (CORRIGIDA)
+-- ======================================
+function GGMenu.CreateExample()
+    local ui = GGMenu:Init()
+    
+    -- Tab de exemplo
+    local exampleTab = ui.Window:AddTab("Exemplo")
+    
+    -- Seção de controles
+    local controls = exampleTab:AddSection("Controles")
+    
+    local config = GGMenu.CreateConfig("Example_Config", {
+        toggle1 = true,
+        sliderValue = 50,
+        dropdownOption = "Opção 1"
+    })
+    
+    -- Criar controles COM CALLBACK (FUNCIONANDO AGORA)
+    local toggle1 = controls:AddToggle("Toggle Exemplo", config:Get("toggle1"), "toggle1", config,
+        function(value)
+            GGMenu.Notify("Toggle", "Estado: " .. (value and "ON" or "OFF"), 2)
+        end
+    )
+    
+    local slider1 = controls:AddSlider("Slider Exemplo", 0, 100, config:Get("sliderValue"), "sliderValue", config)
+    
+    local options = {"Opção 1", "Opção 2", "Opção 3"}
+    local dropdown1 = controls:AddDropdown("Dropdown Exemplo", options, config:Get("dropdownOption"), "dropdownOption", config)
+    
+    -- Botões de ação
+    controls:AddSpacer(10)
+    
+    controls:AddButton("Testar Notificação", function()
+        GGMenu.Notify("Teste", "Esta é uma notificação de teste!", 3)
+    end)
+    
+    controls:AddButton("Copiar Config", function()
+        local json = game:GetService("HttpService"):JSONEncode(config.Data)
+        if setclipboard then
+            setclipboard(json)
+            GGMenu.Notify("Configuração", "Copiada para clipboard!", 2)
+        end
+    end)
+    
+    controls:AddButton("Fechar UI", function()
+        ui.Hide()
+    end)
+    
+    controls:AddButton("Mostrar UI", function()
+        ui.Show()
+    end)
+    
+    return ui
+end
+
+-- ======================================
+-- AUTO INICIALIZAÇÃO (OPCIONAL)
+-- ======================================
+function GGMenu.AutoInit()
+    local ui = GGMenu:Init()
+    GGMenu.Notify("GGMenu v6.2", "Pressione Insert para abrir/fechar", 4)
+    return ui
 end
 
 -- ======================================
 -- EXPORT
 -- ======================================
-return GGMenu
+return setmetatable(GGMenu, {
+    __call = function(self, ...)
+        return GGMenu.AutoInit(...)
+    end
+})
