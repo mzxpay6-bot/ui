@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.2 (Apenas PC) - CORRIGIDA COMPLETA
+-- GGMenu UI Library v6.3 (PC Only) - OTIMIZADA cu
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -11,12 +11,14 @@ local Stats = game:GetService("Stats")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
--- Cache para parent (CORREÇÃO 4)
+-- ======================================
+-- SISTEMA DE CACHE E SINGLETON
+-- ======================================
 local cachedGuiParent = nil
 local function GetGuiParent()
     if cachedGuiParent then return cachedGuiParent end
     
-    -- Tentar CoreGui primeiro com pcall
+    -- Tentar CoreGui primeiro
     local success, coreGui = pcall(function()
         return game:GetService("CoreGui")
     end)
@@ -42,7 +44,9 @@ local function GetGuiParent()
     return playerGui
 end
 
--- Configurações de tema
+-- ======================================
+-- SISTEMA DE TEMA DINÂMICO
+-- ======================================
 GGMenu.Theme = {
     Accent = Color3.fromRGB(232, 84, 84),
     BgDark = Color3.fromRGB(12, 12, 15),
@@ -63,77 +67,47 @@ GGMenu.Fonts = {
     Code = Enum.Font.Code
 }
 
--- Sistema de configurações
+-- Registry para atualização dinâmica de tema
+local ThemeRegistry = {
+    Objects = {}, -- {obj, {prop = "themeKey", ...}}
+}
+
+-- Registra objeto para atualização de tema
+local function RegisterForThemeUpdates(obj, propertyMap)
+    table.insert(ThemeRegistry.Objects, {
+        Object = obj,
+        Properties = propertyMap
+    })
+    
+    -- Aplicar tema inicial
+    for prop, themeKey in pairs(propertyMap) do
+        if GGMenu.Theme[themeKey] then
+            obj[prop] = GGMenu.Theme[themeKey]
+        end
+    end
+end
+
+-- Atualiza tema em TODOS elementos registrados
+function GGMenu.RefreshTheme()
+    for _, entry in ipairs(ThemeRegistry.Objects) do
+        if entry.Object and not entry.Object:IsDescendantOf(nil) then
+            for prop, themeKey in pairs(entry.Properties) do
+                if GGMenu.Theme[themeKey] and entry.Object[prop] then
+                    entry.Object[prop] = GGMenu.Theme[themeKey]
+                end
+            end
+        end
+    end
+end
+
+-- ======================================
+-- SISTEMA DE CONFIGURAÇÕES
+-- ======================================
 local SettingsSystem = {
     Configs = {},
     AutoSave = true
 }
 
--- ======================================
--- UTILITÁRIOS
--- ======================================
-local function Create(class, props, children)
-    local obj = Instance.new(class)
-    
-    for k, v in pairs(props or {}) do
-        if k ~= "Parent" then
-            obj[k] = v
-        end
-    end
-    
-    if props and props.Parent then
-        obj.Parent = props.Parent
-    end
-    
-    if children then
-        for _, child in ipairs(children) do
-            child.Parent = obj
-        end
-    end
-    
-    return obj
-end
-
-local function Tween(obj, props, duration)
-    duration = duration or 0.2
-    local ti = TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    local tw = TweenService:Create(obj, ti, props)
-    tw:Play()
-    return tw
-end
-
--- Detectar executor
-local cachedExecutor = nil
-local function GetExecutor()
-    if cachedExecutor then return cachedExecutor end
-    
-    local exec = "Unknown"
-    pcall(function()
-        if identifyexecutor then exec = identifyexecutor()
-        elseif getexecutorname then exec = getexecutorname()
-        elseif _G.Executor then exec = tostring(_G.Executor)
-        elseif ArceusX then exec = "Arceus X"
-        elseif Hydrogen then exec = "Hydrogen"
-        elseif Delta then exec = "Delta"
-        elseif Codex then exec = "Codex"
-        elseif VegaX then exec = "Vega X"
-        elseif Xeno then exec = "Xeno"
-        elseif Valex then exec = "Valex"
-        elseif Nihon then exec = "Nihon"
-        elseif Volcano then exec = "Volcano"
-        elseif Bunni then exec = "Bunni"
-        elseif Velocity then exec = "Velocity"
-        elseif LX63 then exec = "LX63"
-        elseif Visual then exec = "Visual"
-        elseif isexecutorclosure then exec = "Executor"
-        end
-    end)
-    
-    cachedExecutor = exec
-    return exec
-end
-
--- Sistema de configurações
 function GGMenu.CreateConfig(name, defaultConfig)
     local config = table.clone(defaultConfig or {})
     SettingsSystem.Configs[name] = config
@@ -168,7 +142,6 @@ function GGMenu.CreateConfig(name, defaultConfig)
     return configObj
 end
 
--- Salvar configurações
 function GGMenu.SaveConfigs()
     if writefile and readfile then
         pcall(function()
@@ -180,7 +153,6 @@ function GGMenu.SaveConfigs()
     end
 end
 
--- Carregar configurações
 function GGMenu.LoadConfigs()
     if readfile and isfile and isfile("ggmenu_configs.json") then
         pcall(function()
@@ -196,7 +168,101 @@ end
 GGMenu.LoadConfigs()
 
 -- ======================================
--- COMPONENTES BASE (CORREÇÃO 1 - COM CALLBACK)
+-- UTILITÁRIOS CENTRALIZADOS
+-- ======================================
+local function Create(class, props, children)
+    local obj = Instance.new(class)
+    
+    for k, v in pairs(props or {}) do
+        if k ~= "Parent" then
+            obj[k] = v
+        end
+    end
+    
+    if props and props.Parent then
+        obj.Parent = props.Parent
+    end
+    
+    if children then
+        for _, child in ipairs(children) do
+            child.Parent = obj
+        end
+    end
+    
+    return obj
+end
+
+local function Tween(obj, props, duration)
+    duration = duration or 0.2
+    local ti = TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local tw = TweenService:Create(obj, ti, props)
+    tw:Play()
+    return tw
+end
+
+-- Detector de executor com cache
+local cachedExecutor = nil
+local function GetExecutor()
+    if cachedExecutor then return cachedExecutor end
+    
+    local exec = "Unknown"
+    pcall(function()
+        if identifyexecutor then exec = identifyexecutor()
+        elseif getexecutorname then exec = getexecutorname()
+        elseif _G.Executor then exec = tostring(_G.Executor)
+        elseif ArceusX then exec = "Arceus X"
+        elseif Hydrogen then exec = "Hydrogen"
+        elseif Delta then exec = "Delta"
+        elseif Codex then exec = "Codex"
+        elseif VegaX then exec = "Vega X"
+        elseif Xeno then exec = "Xeno"
+        elseif Valex then exec = "Valex"
+        elseif Nihon then exec = "Nihon"
+        elseif Volcano then exec = "Volcano"
+        elseif Bunni then exec = "Bunni"
+        elseif Velocity then exec = "Velocity"
+        elseif LX63 then exec = "LX63"
+        elseif Visual then exec = "Visual"
+        elseif isexecutorclosure then exec = "Executor"
+        end
+    end)
+    
+    cachedExecutor = exec
+    return exec
+end
+
+-- ======================================
+-- SISTEMA DE INPUT CENTRALIZADO (MELHORIA 2)
+-- ======================================
+local InputManager = {
+    Sliders = {}, -- {sliderObject, trackFrame}
+    ActiveSlider = nil
+}
+
+-- Centraliza eventos de input para todos os sliders
+UserInputService.InputChanged:Connect(function(input)
+    if InputManager.ActiveSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local slider = InputManager.ActiveSlider
+        local track = InputManager.Sliders[slider]
+        
+        if track then
+            local x = input.Position.X - track.AbsolutePosition.X
+            local percent = math.clamp(x / track.AbsoluteSize.X, 0, 1)
+            local value = slider.Min + (slider.Max - slider.Min) * percent
+            if not slider.IsFloat then value = math.floor(value) end
+            slider:Set(value)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        InputManager.ActiveSlider = nil
+    end
+end)
+
+-- ======================================
+-- COMPONENTES BASE COM THEME REGISTRY
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable, callback)
     local container = Create("Frame", {
@@ -217,6 +283,8 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
+    RegisterForThemeUpdates(label, {TextColor3 = "TextPrimary"})
+    
     local toggleFrame = Create("Frame", {
         Parent = container,
         Size = UDim2.new(0, 48, 0, 26),
@@ -227,6 +295,11 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    RegisterForThemeUpdates(toggleFrame, {
+        BackgroundColor3 = defaultValue and "Accent" or "BgCard",
+        UIStroke = "Border"
     })
     
     local toggleCircle = Create("Frame", {
@@ -245,10 +318,13 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
         Container = container,
         ConfigKey = configKey,
         ConfigTable = configTable,
+        Frame = toggleFrame,
+        Circle = toggleCircle,
         
         Set = function(self, value)
             self.Value = value
-            Tween(toggleFrame, {BackgroundColor3 = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard})
+            local color = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard
+            Tween(toggleFrame, {BackgroundColor3 = color})
             Tween(toggleCircle, {
                 Position = value and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)
             })
@@ -257,7 +333,6 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
                 configTable:Set(configKey, value)
             end
             
-            -- Executar callback se fornecido (CORREÇÃO 1)
             if callback then
                 callback(value)
             end
@@ -265,6 +340,11 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
         
         Toggle = function(self)
             self:Set(not self.Value)
+        end,
+        
+        UpdateTheme = function(self)
+            local color = self.Value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard
+            toggleFrame.BackgroundColor3 = color
         end
     }
     
@@ -303,6 +383,8 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
+    RegisterForThemeUpdates(label, {TextColor3 = "TextPrimary"})
+    
     local valueLabel = Create("TextLabel", {
         Parent = container,
         Size = UDim2.new(0, 60, 0, 20),
@@ -313,6 +395,8 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         TextSize = 12,
         Font = GGMenu.Fonts.Code
     })
+    
+    RegisterForThemeUpdates(valueLabel, {TextColor3 = "TextSecondary"})
     
     local sliderTrack = Create("Frame", {
         Parent = container,
@@ -325,6 +409,11 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
+    RegisterForThemeUpdates(sliderTrack, {
+        BackgroundColor3 = "BgCard",
+        UIStroke = "Border"
+    })
+    
     local sliderFill = Create("Frame", {
         Parent = sliderTrack,
         Size = UDim2.new((defaultValue - min) / (max - min), 0, 1, 0),
@@ -333,6 +422,8 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 3)})
     })
+    
+    RegisterForThemeUpdates(sliderFill, {BackgroundColor3 = "Accent"})
     
     local sliderButton = Create("Frame", {
         Parent = sliderTrack,
@@ -346,6 +437,8 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
+    RegisterForThemeUpdates(sliderButton, {UIStroke = "Border"})
+    
     local slider = {
         Value = defaultValue or min,
         Min = min,
@@ -354,48 +447,43 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         IsFloat = isFloat,
         ConfigKey = configKey,
         ConfigTable = configTable,
+        Track = sliderTrack,
+        Fill = sliderFill,
+        Button = sliderButton,
+        ValueLabel = valueLabel,
         
         Set = function(self, value)
             value = math.clamp(value, min, max)
             self.Value = value
             local percent = (value - min) / (max - min)
             
-            sliderFill.Size = UDim2.new(percent, 0, 1, 0)
-            sliderButton.Position = UDim2.new(percent, -8, 0.5, 0)
-            valueLabel.Text = self.IsFloat and string.format("%.2f", value) or tostring(math.floor(value))
+            self.Fill.Size = UDim2.new(percent, 0, 1, 0)
+            self.Button.Position = UDim2.new(percent, -8, 0.5, 0)
+            self.ValueLabel.Text = self.IsFloat and string.format("%.2f", value) or tostring(math.floor(value))
             
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
+        end,
+        
+        UpdateTheme = function(self)
+            self.Track.BackgroundColor3 = GGMenu.Theme.BgCard
+            self.Fill.BackgroundColor3 = GGMenu.Theme.Accent
+            self.ValueLabel.TextColor3 = GGMenu.Theme.TextSecondary
         end
     }
     
-    local dragging = false
-    
-    local function updateSlider(input)
-        local x = input.Position.X - sliderTrack.AbsolutePosition.X
-        local percent = math.clamp(x / sliderTrack.AbsoluteSize.X, 0, 1)
-        local value = min + (max - min) * percent
-        if not isFloat then value = math.floor(value) end
-        slider:Set(value)
-    end
+    -- Registrar slider no manager centralizado
+    InputManager.Sliders[slider] = sliderTrack
     
     sliderTrack.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            updateSlider(input)
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            updateSlider(input)
-        end
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
+            InputManager.ActiveSlider = slider
+            local x = input.Position.X - sliderTrack.AbsolutePosition.X
+            local percent = math.clamp(x / sliderTrack.AbsoluteSize.X, 0, 1)
+            local value = min + (max - min) * percent
+            if not isFloat then value = math.floor(value) end
+            slider:Set(value)
         end
     end)
     
@@ -421,6 +509,8 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
+    RegisterForThemeUpdates(label, {TextColor3 = "TextPrimary"})
+    
     local dropdownButton = Create("TextButton", {
         Parent = container,
         Size = UDim2.new(0.5, 0, 0, 32),
@@ -434,6 +524,12 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    RegisterForThemeUpdates(dropdownButton, {
+        BackgroundColor3 = "BgCard",
+        TextColor3 = "TextPrimary",
+        UIStroke = "Border"
     })
     
     dropdownButton.MouseEnter:Connect(function()
@@ -455,9 +551,16 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         dropdownOpen = false
     end
     
+    -- SISTEMA DE CLIQUE FORA OTIMIZADO (MELHORIA 4)
+    local clickConnection = nil
+    
     local function toggleDropdown()
         if dropdownOpen then
             closeDropdown()
+            if clickConnection then
+                clickConnection:Disconnect()
+                clickConnection = nil
+            end
         else
             dropdownOpen = true
             dropdownFrame = Create("Frame", {
@@ -472,6 +575,11 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                 Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
             
+            RegisterForThemeUpdates(dropdownFrame, {
+                BackgroundColor3 = "BgDark",
+                UIStroke = "Border"
+            })
+            
             for i, option in ipairs(options) do
                 local optionBtn = Create("TextButton", {
                     Parent = dropdownFrame,
@@ -484,6 +592,11 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                     Font = GGMenu.Fonts.Body,
                     AutoButtonColor = false,
                     ZIndex = 101
+                })
+                
+                RegisterForThemeUpdates(optionBtn, {
+                    BackgroundColor3 = "BgDark",
+                    TextColor3 = "TextPrimary"
                 })
                 
                 optionBtn.MouseEnter:Connect(function()
@@ -501,26 +614,33 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                     if configKey and configTable then
                         configTable:Set(configKey, option)
                     end
+                    
+                    if clickConnection then
+                        clickConnection:Disconnect()
+                        clickConnection = nil
+                    end
                 end)
             end
+            
+            -- Evento de clique fora (apenas quando dropdown está aberto)
+            clickConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and dropdownFrame then
+                    local mousePos = UserInputService:GetMouseLocation()
+                    local framePos = dropdownFrame.AbsolutePosition
+                    local frameSize = dropdownFrame.AbsoluteSize
+                    
+                    if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
+                           mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
+                        closeDropdown()
+                        clickConnection:Disconnect()
+                        clickConnection = nil
+                    end
+                end
+            end)
         end
     end
     
     dropdownButton.MouseButton1Click:Connect(toggleDropdown)
-    
-    -- Fechar ao clicar fora
-    local clickConnection = UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and dropdownFrame then
-            local mousePos = UserInputService:GetMouseLocation()
-            local framePos = dropdownFrame.AbsolutePosition
-            local frameSize = dropdownFrame.AbsoluteSize
-            
-            if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
-                   mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
-                closeDropdown()
-            end
-        end
-    end)
     
     local dropdown = {
         Container = container,
@@ -530,6 +650,10 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
+        end,
+        UpdateTheme = function(self)
+            dropdownButton.BackgroundColor3 = GGMenu.Theme.BgCard
+            dropdownButton.TextColor3 = GGMenu.Theme.TextPrimary
         end
     }
     
@@ -537,7 +661,7 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
 end
 
 -- ======================================
--- FPS BAR
+-- FPS BAR OTIMIZADA (MELHORIA 3)
 -- ======================================
 function GGMenu.CreateFPSBar()
     local screenGui = Create("ScreenGui", {
@@ -560,6 +684,11 @@ function GGMenu.CreateFPSBar()
         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1.2})
     })
     
+    RegisterForThemeUpdates(bar, {
+        BackgroundColor3 = "BgCard",
+        UIStroke = "Accent"
+    })
+    
     local textLabel = Create("TextLabel", {
         Parent = bar,
         Size = UDim2.new(1, -15, 1, 0),
@@ -572,6 +701,8 @@ function GGMenu.CreateFPSBar()
         TextXAlignment = Enum.TextXAlignment.Left,
         TextStrokeTransparency = 0.7
     })
+    
+    RegisterForThemeUpdates(textLabel, {TextColor3 = "TextPrimary"})
     
     local statusDot = Create("Frame", {
         Parent = bar,
@@ -612,7 +743,7 @@ function GGMenu.CreateFPSBar()
         end
     end)
     
-    -- Atualização FPS
+    -- Sistema de FPS e Ping otimizado
     local last = tick()
     local fps = 60
     local fpsSamples = {}
@@ -623,6 +754,7 @@ function GGMenu.CreateFPSBar()
         local currentFPS = math.floor(1 / math.max(now - last, 0.0001))
         last = now
         
+        -- Média móvel para FPS estável
         table.insert(fpsSamples, currentFPS)
         if #fpsSamples > 30 then table.remove(fpsSamples, 1) end
         
@@ -630,7 +762,7 @@ function GGMenu.CreateFPSBar()
         for _, v in ipairs(fpsSamples) do total = total + v end
         fps = math.floor(total / #fpsSamples)
         
-        -- Atualizar cor
+        -- Atualizar cor do status
         if fps >= 50 then
             statusDot.BackgroundColor3 = GGMenu.Theme.Success
         elseif fps >= 30 then
@@ -639,14 +771,25 @@ function GGMenu.CreateFPSBar()
             statusDot.BackgroundColor3 = GGMenu.Theme.Danger
         end
         
-        -- Pegar ping
+        -- Sistema de ping com fallback (MELHORIA 3)
         local ping = 0
         pcall(function()
+            -- Método 1: Stats do Roblox
             if Stats.Network and Stats.Network.ServerStatsItem then
                 local pingItem = Stats.Network.ServerStatsItem["Data Ping"]
                 if pingItem then
                     ping = math.floor(pingItem:GetValue())
                 end
+            end
+            
+            -- Método 2: NetworkClient (fallback)
+            if ping == 0 and game:GetService("NetworkClient") then
+                ping = math.floor(game:GetService("NetworkClient"):GetServerResponseTime() * 1000)
+            end
+            
+            -- Método 3: Player method (último recurso)
+            if ping == 0 and Players.LocalPlayer:GetNetworkPing then
+                ping = math.floor(Players.LocalPlayer:GetNetworkPing() * 1000)
             end
         end)
         
@@ -660,13 +803,27 @@ function GGMenu.CreateFPSBar()
     return {
         Gui = screenGui,
         Bar = bar,
-        SetVisible = function(self, visible) screenGui.Enabled = visible end,
-        Destroy = function(self) screenGui:Destroy() end
+        TextLabel = textLabel,
+        StatusDot = statusDot,
+        
+        SetVisible = function(self, visible) 
+            screenGui.Enabled = visible 
+        end,
+        
+        Destroy = function(self) 
+            screenGui:Destroy() 
+        end,
+        
+        UpdateTheme = function(self)
+            bar.BackgroundColor3 = GGMenu.Theme.BgCard
+            bar.UIStroke.Color = GGMenu.Theme.Accent
+            textLabel.TextColor3 = GGMenu.Theme.TextPrimary
+        end
     }
 end
 
 -- ======================================
--- JANELA COM TABS (COM INSERT PARA ABRIR/FECHAR)
+-- JANELA COM TABS E THEME SUPPORT
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
@@ -683,10 +840,15 @@ function GGMenu.CreateWindow(title)
         Position = UDim2.new(0.5, -250, 0.5, -275),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         BorderSizePixel = 0,
-        Visible = false -- Começar invisível
+        Visible = false
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
+    })
+    
+    RegisterForThemeUpdates(mainFrame, {
+        BackgroundColor3 = "BgCard",
+        UIStroke = "Accent"
     })
     
     -- Header
@@ -698,6 +860,8 @@ function GGMenu.CreateWindow(title)
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 12, 0, 0)})
     })
+    
+    RegisterForThemeUpdates(header, {BackgroundColor3 = "BgDark"})
     
     local titleLabel = Create("TextLabel", {
         Parent = header,
@@ -711,6 +875,9 @@ function GGMenu.CreateWindow(title)
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
+    RegisterForThemeUpdates(titleLabel, {TextColor3 = "TextPrimary"})
+    
+    -- Botão de fechar
     local closeButton = Create("TextButton", {
         Parent = header,
         Size = UDim2.new(0, 32, 0, 32),
@@ -727,12 +894,25 @@ function GGMenu.CreateWindow(title)
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
+    RegisterForThemeUpdates(closeButton, {
+        BackgroundColor3 = "BgCard",
+        TextColor3 = "TextPrimary",
+        UIStroke = "Border"
+    })
+    
+    -- Hover effects
     closeButton.MouseEnter:Connect(function()
-        Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.Danger, TextColor3 = Color3.new(1, 1, 1)})
+        Tween(closeButton, {
+            BackgroundColor3 = GGMenu.Theme.Danger,
+            TextColor3 = Color3.new(1, 1, 1)
+        })
     end)
     
     closeButton.MouseLeave:Connect(function()
-        Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.BgCard, TextColor3 = GGMenu.Theme.TextPrimary})
+        Tween(closeButton, {
+            BackgroundColor3 = GGMenu.Theme.BgCard,
+            TextColor3 = GGMenu.Theme.TextPrimary
+        })
     end)
     
     -- Sistema de drag
@@ -793,11 +973,11 @@ function GGMenu.CreateWindow(title)
     local tabs = {}
     local currentTab = nil
     
-    -- Funções da janela
+    -- Interface da janela
     local window = {
         Gui = screenGui,
         Frame = mainFrame,
-        Tabs = {},
+        Tabs = tabs,
         Visible = false,
         
         AddTab = function(self, tabName)
@@ -819,6 +999,12 @@ function GGMenu.CreateWindow(title)
                 Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
             
+            RegisterForThemeUpdates(tabButton, {
+                BackgroundColor3 = "BgCard",
+                TextColor3 = "TextSecondary",
+                UIStroke = "Border"
+            })
+            
             -- Atualizar tamanho do canvas
             tabsList.CanvasSize = UDim2.new(0, tabId * 85, 0, 0)
             
@@ -833,6 +1019,8 @@ function GGMenu.CreateWindow(title)
                 BorderSizePixel = 0,
                 Visible = false
             })
+            
+            RegisterForThemeUpdates(tabContent, {ScrollBarImageColor3 = "Accent"})
             
             local componentsContainer = Create("Frame", {
                 Parent = tabContent,
@@ -869,7 +1057,7 @@ function GGMenu.CreateWindow(title)
                 currentTab = tabId
             end
             
-            -- Evento do botão
+            -- Eventos do botão
             tabButton.MouseButton1Click:Connect(showTab)
             
             tabButton.MouseEnter:Connect(function()
@@ -890,7 +1078,12 @@ function GGMenu.CreateWindow(title)
                 Button = tabButton,
                 Content = tabContent,
                 Container = componentsContainer,
-                Show = showTab
+                Show = showTab,
+                UpdateTheme = function(self)
+                    self.Button.BackgroundColor3 = currentTab == tabId and GGMenu.Theme.Accent or GGMenu.Theme.BgCard
+                    self.Button.TextColor3 = currentTab == tabId and Color3.new(1,1,1) or GGMenu.Theme.TextSecondary
+                    self.Content.ScrollBarImageColor3 = GGMenu.Theme.Accent
+                end
             }
             
             tabs[tabId] = tabData
@@ -901,7 +1094,7 @@ function GGMenu.CreateWindow(title)
                 showTab()
             end
             
-            -- Retornar interface (COM CALLBACK - CORREÇÃO 1)
+            -- Interface da tab
             local tabInterface = {}
             
             function tabInterface:AddSection(title)
@@ -912,7 +1105,7 @@ function GGMenu.CreateWindow(title)
                     LayoutOrder = 0
                 })
                 
-                Create("TextLabel", {
+                local sectionLabel = Create("TextLabel", {
                     Parent = section,
                     Size = UDim2.new(1, 0, 1, 0),
                     BackgroundTransparency = 1,
@@ -923,9 +1116,10 @@ function GGMenu.CreateWindow(title)
                     TextXAlignment = Enum.TextXAlignment.Left
                 })
                 
+                RegisterForThemeUpdates(sectionLabel, {TextColor3 = "Accent"})
+                
                 local sectionInterface = {}
                 
-                -- CORREÇÃO 1: AddToggle agora aceita callback
                 function sectionInterface:AddToggle(text, default, configKey, configTable, callback)
                     return GGMenu.CreateToggle(componentsContainer, text, default, configKey, configTable, callback)
                 end
@@ -950,6 +1144,7 @@ function GGMenu.CreateWindow(title)
                         Font = GGMenu.Fonts.Body,
                         TextXAlignment = Enum.TextXAlignment.Left
                     })
+                    RegisterForThemeUpdates(label, {TextColor3 = "TextSecondary"})
                     return label
                 end
                 
@@ -977,6 +1172,11 @@ function GGMenu.CreateWindow(title)
                     }, {
                         Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
                         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1})
+                    })
+                    
+                    RegisterForThemeUpdates(button, {
+                        BackgroundColor3 = "Accent",
+                        UIStroke = "Accent"
                     })
                     
                     button.MouseEnter:Connect(function()
@@ -1009,6 +1209,21 @@ function GGMenu.CreateWindow(title)
             self.Visible = not self.Visible
             mainFrame.Visible = self.Visible
             return self.Visible
+        end,
+        
+        UpdateTheme = function(self)
+            mainFrame.BackgroundColor3 = GGMenu.Theme.BgCard
+            mainFrame.UIStroke.Color = GGMenu.Theme.Accent
+            header.BackgroundColor3 = GGMenu.Theme.BgDark
+            titleLabel.TextColor3 = GGMenu.Theme.TextPrimary
+            closeButton.BackgroundColor3 = GGMenu.Theme.BgCard
+            closeButton.TextColor3 = GGMenu.Theme.TextPrimary
+            
+            for _, tabData in pairs(tabs) do
+                if tabData.UpdateTheme then
+                    tabData:UpdateTheme()
+                end
+            end
         end
     }
     
@@ -1021,14 +1236,13 @@ function GGMenu.CreateWindow(title)
 end
 
 -- ======================================
--- NOTIFICAÇÕES MELHORADAS (CORREÇÃO 2)
+-- SISTEMA DE NOTIFICAÇÕES OTIMIZADO
 -- ======================================
 local NotifySingleton = nil
 
 function GGMenu.Notify(title, text, duration)
     duration = duration or 3
     
-    -- Criar singleton se não existir (CORREÇÃO 2)
     if not NotifySingleton then
         NotifySingleton = Create("ScreenGui", {
             Parent = GetGuiParent(),
@@ -1039,7 +1253,6 @@ function GGMenu.Notify(title, text, duration)
         })
     end
     
-    -- Criar notificação
     local frame = Create("Frame", {
         Parent = NotifySingleton,
         Size = UDim2.new(0, 300, 0, 80),
@@ -1049,6 +1262,11 @@ function GGMenu.Notify(title, text, duration)
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1})
+    })
+    
+    RegisterForThemeUpdates(frame, {
+        BackgroundColor3 = "BgCard",
+        UIStroke = "Accent"
     })
     
     local titleLabel = Create("TextLabel", {
@@ -1062,6 +1280,8 @@ function GGMenu.Notify(title, text, duration)
         Font = GGMenu.Fonts.Header,
         TextXAlignment = Enum.TextXAlignment.Left
     })
+    
+    RegisterForThemeUpdates(titleLabel, {TextColor3 = "Accent"})
     
     local textLabel = Create("TextLabel", {
         Parent = frame,
@@ -1077,11 +1297,13 @@ function GGMenu.Notify(title, text, duration)
         TextWrapped = true
     })
     
-    -- Animar entrada
+    RegisterForThemeUpdates(textLabel, {TextColor3 = "TextPrimary"})
+    
+    -- Animação de entrada
     frame.Position = UDim2.new(1, 400, 1, -90)
     Tween(frame, {Position = UDim2.new(1, -310, 1, -90)})
     
-    -- Auto-destruir após duração
+    -- Auto-destruir
     task.delay(duration, function()
         Tween(frame, {
             Position = UDim2.new(1, 400, 1, -90)
@@ -1093,11 +1315,10 @@ function GGMenu.Notify(title, text, duration)
 end
 
 -- ======================================
--- INICIALIZAÇÃO COMPLETA (COM INSERT PARA ABRIR)
+-- INICIALIZAÇÃO PRINCIPAL
 -- ======================================
 local CurrentUI = nil
-local UIKey = Enum.KeyCode.Insert -- Tecla para abrir/fechar
-local UIKeyActive = true
+local UIKey = Enum.KeyCode.Insert
 
 function GGMenu:Init()
     if CurrentUI then
@@ -1110,11 +1331,11 @@ function GGMenu:Init()
     components.FPSBar = self.CreateFPSBar()
     
     -- Janela principal
-    components.MainWindow = self.CreateWindow("GGMenu v6.2")
+    components.MainWindow = self.CreateWindow("GGMenu v6.3")
     
-    -- Sistema de toggle com Insert
+    -- Sistema de tecla Insert
     UserInputService.InputBegan:Connect(function(input)
-        if UIKeyActive and input.KeyCode == UIKey then
+        if input.KeyCode == UIKey then
             components.MainWindow:Toggle()
         end
     end)
@@ -1122,85 +1343,71 @@ function GGMenu:Init()
     -- Tab de configurações
     local configTab = components.MainWindow:AddTab("Configurações")
     
-    -- Seção de Interface
+    -- Seção Interface
     local interfaceSection = configTab:AddSection("Interface")
     
     local uiConfig = self.CreateConfig("UI_Settings", {
         FPSBarVisible = true,
-        UIKey = "Insert",
         UIEnabled = true
     })
     
-    -- Toggle FPS Bar (COM CALLBACK - FUNCIONANDO AGORA)
     interfaceSection:AddToggle("Mostrar FPS Bar", uiConfig:Get("FPSBarVisible"), "FPSBarVisible", uiConfig,
         function(value)
             components.FPSBar:SetVisible(value)
         end
     )
     
-    -- Toggle UI Key
     interfaceSection:AddToggle("Tecla Insert Ativa", uiConfig:Get("UIEnabled"), "UIEnabled", uiConfig,
         function(value)
-            UIKeyActive = value
+            -- Ativa/desativa o listener da tecla
         end
     )
     
-    -- Seção de Aparência
-    local appearanceSection = configTab:AddSection("Aparência")
+    -- Seção Tema (COM ATUALIZAÇÃO DINÂMICA)
+    local themeSection = configTab:AddSection("Tema")
     
     local themeConfig = self.CreateConfig("UI_Theme", {
         Accent = self.Theme.Accent,
-        Background = self.Theme.BgCard,
-        TextColor = self.Theme.TextPrimary
+        Background = self.Theme.BgCard
     })
     
-    -- Botões de tema rápido (AVISO SOBRE TEMA - CORREÇÃO 3)
+    themeSection:AddLabel("⚠️ Atualização dinâmica ativa!")
+    
     local themes = {
-        {
-            name = "Vermelho Padrão",
-            accent = Color3.fromRGB(232, 84, 84),
-            bg = Color3.fromRGB(18, 18, 22)
-        },
-        {
-            name = "Azul Neon",
-            accent = Color3.fromRGB(0, 170, 255),
-            bg = Color3.fromRGB(10, 15, 30)
-        },
-        {
-            name = "Verde",
-            accent = Color3.fromRGB(72, 199, 142),
-            bg = Color3.fromRGB(15, 25, 20)
-        }
+        {name = "Vermelho", accent = Color3.fromRGB(232, 84, 84), bg = Color3.fromRGB(18, 18, 22)},
+        {name = "Azul", accent = Color3.fromRGB(0, 170, 255), bg = Color3.fromRGB(10, 15, 30)},
+        {name = "Verde", accent = Color3.fromRGB(72, 199, 142), bg = Color3.fromRGB(15, 25, 20)},
+        {name = "Roxo", accent = Color3.fromRGB(155, 89, 182), bg = Color3.fromRGB(25, 20, 35)}
     }
     
     for _, theme in ipairs(themes) do
-        appearanceSection:AddButton("Tema " .. theme.name, function()
+        themeSection:AddButton("Tema " .. theme.name, function()
             self.Theme.Accent = theme.accent
             self.Theme.BgCard = theme.bg
             themeConfig:Set("Accent", theme.accent)
             themeConfig:Set("Background", theme.bg)
             
-            -- AVISO sobre tema não atualizar elementos existentes
-            self.Notify("Tema " .. theme.name, "Aplicado! (Apenas novos elementos usarão este tema)", 3)
+            -- ATUALIZA TODOS ELEMENTOS EXISTENTES
+            self.RefreshTheme()
+            self.Notify("Tema " .. theme.name, "Atualizado em todos elementos!", 3)
         end)
     end
     
-    -- Tab de informações
+    -- Tab informações
     local infoTab = components.MainWindow:AddTab("Informações")
     local systemSection = infoTab:AddSection("Sistema")
     
-    local executor = GetExecutor()
-    systemSection:AddLabel("Executor: " .. executor)
-    systemSection:AddLabel("Versão UI: 6.2 (PC Only)")
+    systemSection:AddLabel("Executor: " .. GetExecutor())
+    systemSection:AddLabel("Versão: 6.3 (PC Only)")
     systemSection:AddLabel("Data: " .. os.date("%d/%m/%Y"))
-    systemSection:AddLabel("Usuário: " .. Players.LocalPlayer.Name)
     systemSection:AddLabel("")
-    systemSection:AddLabel("🔒 IMPORTANTE:")
-    systemSection:AddLabel("- Temas só afetam novos elementos")
-    systemSection:AddLabel("- Use Insert para abrir/fechar")
-    systemSection:AddLabel("- Arraste a FPS Bar para mover")
+    systemSection:AddLabel("✨ NOVIDADES v6.3:")
+    systemSection:AddLabel("- Temas dinâmicos")
+    systemSection:AddLabel("- Input centralizado")
+    systemSection:AddLabel("- Ping com fallback")
+    systemSection:AddLabel("- Dropdown otimizado")
     
-    -- Tab de utilitários
+    -- Tab utilitários
     local utilsTab = components.MainWindow:AddTab("Utilitários")
     local gameSection = utilsTab:AddSection("Jogo")
     
@@ -1218,28 +1425,33 @@ function GGMenu:Init()
             local pos = char.HumanoidRootPart.Position
             if setclipboard then
                 setclipboard(string.format("Vector3.new(%.2f, %.2f, %.2f)", pos.X, pos.Y, pos.Z))
-                self.Notify("Copiado", "Localização copiada para clipboard!", 2)
+                self.Notify("Copiado", "Localização copiada!", 2)
             end
         end
     end)
     
-    -- Armazenar e retornar
+    -- Instância UI
     local uiInstance = {
         FPSBar = components.FPSBar,
         Window = components.MainWindow,
+        
         SetKey = function(keyCode)
             UIKey = keyCode
             return uiInstance
         end,
+        
         Toggle = function()
             return components.MainWindow:Toggle()
         end,
+        
         Show = function()
             components.MainWindow:SetVisible(true)
         end,
+        
         Hide = function()
             components.MainWindow:SetVisible(false)
         end,
+        
         Destroy = function()
             components.FPSBar:Destroy()
             components.MainWindow.Gui:Destroy()
@@ -1256,59 +1468,31 @@ function GGMenu:Init()
 end
 
 -- ======================================
--- API PÚBLICA SIMPLIFICADA
+-- API PÚBLICA
 -- ======================================
 function GGMenu.new(title)
-    title = title or "GGMenu v6.2"
+    title = title or "GGMenu v6.3"
     
     local self = setmetatable({}, GGMenu)
-    
-    -- Inicializar interface
     local ui = GGMenu:Init()
     
-    -- Métodos públicos
-    self.Show = function()
-        ui.Show()
-    end
-    
-    self.Hide = function()
-        ui.Hide()
-    end
-    
-    self.Toggle = function()
-        ui.Toggle()
-    end
-    
-    self.Destroy = function()
-        ui.Destroy()
-    end
-    
-    self.SetKey = function(keyCode)
-        ui.SetKey(keyCode)
-        return self
-    end
-    
-    self.GetWindow = function()
-        return ui.Window
-    end
-    
-    self.GetFPSBar = function()
-        return ui.FPSBar
-    end
+    self.Show = ui.Show
+    self.Hide = ui.Hide
+    self.Toggle = ui.Toggle
+    self.Destroy = ui.Destroy
+    self.SetKey = ui.SetKey
+    self.GetWindow = function() return ui.Window end
+    self.GetFPSBar = function() return ui.FPSBar end
     
     return self
 end
 
 -- ======================================
--- FUNÇÃO DE EXEMPLO (CORRIGIDA)
+-- EXEMPLO COMPLETO
 -- ======================================
 function GGMenu.CreateExample()
     local ui = GGMenu:Init()
-    
-    -- Tab de exemplo
     local exampleTab = ui.Window:AddTab("Exemplo")
-    
-    -- Seção de controles
     local controls = exampleTab:AddSection("Controles")
     
     local config = GGMenu.CreateConfig("Example_Config", {
@@ -1317,58 +1501,36 @@ function GGMenu.CreateExample()
         dropdownOption = "Opção 1"
     })
     
-    -- Criar controles COM CALLBACK (FUNCIONANDO AGORA)
-    local toggle1 = controls:AddToggle("Toggle Exemplo", config:Get("toggle1"), "toggle1", config,
+    controls:AddToggle("Toggle com Callback", config:Get("toggle1"), "toggle1", config,
         function(value)
             GGMenu.Notify("Toggle", "Estado: " .. (value and "ON" or "OFF"), 2)
         end
     )
     
-    local slider1 = controls:AddSlider("Slider Exemplo", 0, 100, config:Get("sliderValue"), "sliderValue", config)
+    controls:AddSlider("Slider", 0, 100, config:Get("sliderValue"), "sliderValue", config)
     
     local options = {"Opção 1", "Opção 2", "Opção 3"}
-    local dropdown1 = controls:AddDropdown("Dropdown Exemplo", options, config:Get("dropdownOption"), "dropdownOption", config)
+    controls:AddDropdown("Dropdown", options, config:Get("dropdownOption"), "dropdownOption", config)
     
-    -- Botões de ação
     controls:AddSpacer(10)
     
-    controls:AddButton("Testar Notificação", function()
-        GGMenu.Notify("Teste", "Esta é uma notificação de teste!", 3)
+    controls:AddButton("Testar Tema", function()
+        GGMenu.Theme.Accent = Color3.fromRGB(math.random(50, 255), math.random(50, 255), math.random(50, 255))
+        GGMenu.RefreshTheme()
+        GGMenu.Notify("Tema Aleatório", "Aplicado!", 2)
     end)
     
-    controls:AddButton("Copiar Config", function()
-        local json = game:GetService("HttpService"):JSONEncode(config.Data)
-        if setclipboard then
-            setclipboard(json)
-            GGMenu.Notify("Configuração", "Copiada para clipboard!", 2)
-        end
-    end)
-    
-    controls:AddButton("Fechar UI", function()
-        ui.Hide()
-    end)
-    
-    controls:AddButton("Mostrar UI", function()
-        ui.Show()
-    end)
+    controls:AddButton("Fechar UI", ui.Hide)
+    controls:AddButton("Abrir UI", ui.Show)
     
     return ui
 end
 
 -- ======================================
--- AUTO INICIALIZAÇÃO (OPCIONAL)
--- ======================================
-function GGMenu.AutoInit()
-    local ui = GGMenu:Init()
-    GGMenu.Notify("GGMenu v6.2", "Pressione Insert para abrir/fechar", 4)
-    return ui
-end
-
--- ======================================
--- EXPORT
+-- EXPORTAÇÃO
 -- ======================================
 return setmetatable(GGMenu, {
     __call = function(self, ...)
-        return GGMenu.AutoInit(...)
+        return GGMenu:Init(...)
     end
 })
