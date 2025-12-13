@@ -957,6 +957,28 @@ function GGMenu:Init(showFPSBar)
     return components
 end
 
+
+-- ======================================
+-- BIND DE TECLAS
+-- ======================================
+local activeBinds = {}
+
+function GGMenu.BindKey(keyCode, callback)
+    -- Armazenar bind
+    table.insert(activeBinds, {Key = keyCode, Callback = callback})
+end
+
+-- Detectar pressionamento
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    for _, bind in ipairs(activeBinds) do
+        if input.KeyCode == bind.Key then
+            pcall(bind.Callback)
+        end
+    end
+end)
+
+
 -- Versão minimalista para usar apenas componentes
 function GGMenu:CreateLibrary()
     return {
