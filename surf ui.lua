@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v5.3 (Otimizada e Modular)
+-- GGMenu UI Library v5.3 (Otimizada e Modular) pelegpo
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -12,12 +12,13 @@ local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
--- Configurações
+-- Configurações padrão
 GGMenu.Config = {
     ToggleKey = Enum.KeyCode.Insert,
     DefaultWindowSize = UDim2.new(0, 500, 0, 550),
     FPSBarSize = UDim2.new(0, 450, 0, 32),
-    SliderDragPrecision = 0.01
+    SliderDragPrecision = 0.01,
+    Title = "GGMenu v5.3"
 }
 
 GGMenu.Theme = {
@@ -1204,11 +1205,25 @@ end
 -- INICIALIZAÇÃO MODULAR OTIMIZADA
 -- ======================================
 function GGMenu:Init(options)
-    options = options or {}
-    local showFPSBar = options.ShowFPSBar ~= false
-    local toggleKey = options.ToggleKey or GGMenu.Config.ToggleKey
-    local fpsBarPosition = options.FPSBarPosition
-    local statusPanelPosition = options.StatusPanelPosition
+    -- Verificação segura para options
+    local config = {}
+    
+    if type(options) == "table" then
+        config = options
+    elseif options == nil then
+        config = {}
+    else
+        -- Se for booleano ou outro tipo, trata como showFPSBar
+        config.ShowFPSBar = options == true
+        warn("GGMenu: Deprecated usage - Use table for options instead of boolean")
+    end
+    
+    -- Configurações com valores padrão
+    local showFPSBar = config.ShowFPSBar ~= false
+    local toggleKey = config.ToggleKey or GGMenu.Config.ToggleKey
+    local fpsBarPosition = config.FPSBarPosition
+    local statusPanelPosition = config.StatusPanelPosition
+    local title = config.Title or GGMenu.Config.Title
     
     local components = {}
     local mainConnectionManager = ConnectionManager.new()
@@ -1219,10 +1234,10 @@ function GGMenu:Init(options)
     end
     
     -- Janela
-    components.Window = self.CreateWindow(options.Title or "GGMenu v5.3")
+    components.Window = self.CreateWindow(title)
     
     -- Status Panel (opcional)
-    if options.ShowStatusPanel then
+    if config.ShowStatusPanel then
         components.StatusPanel = self.CreateStatusPanel(statusPanelPosition)
     end
     
@@ -1265,11 +1280,24 @@ function GGMenu:Init(options)
         return keybindManager:Remove(keyCode)
     end
     
+    components.SetTheme = function(newTheme)
+        for key, value in pairs(newTheme) do
+            if GGMenu.Theme[key] ~= nil then
+                GGMenu.Theme[key] = value
+            end
+        end
+    end
+    
     print("GGMenu v5.3 loaded!")
     print("Executor:", Utils.GetExecutor())
     print(string.format("Press %s to show/hide menu", toggleKey.Name))
     
     return components
+end
+
+-- Compatibilidade com versão antiga
+function GGMenu:InitLegacy(showFPSBar)
+    return self:Init({ShowFPSBar = showFPSBar})
 end
 
 -- Versão minimalista para usar apenas componentes
