@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.0 (Otimizada e Minimalista)
+-- GGMenu UI Library v5.2 (Limpa e Modular) revert update
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -11,8 +11,6 @@ local Stats = game:GetService("Stats")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 
 -- Configurações
 GGMenu.Theme = {
@@ -35,164 +33,79 @@ GGMenu.Fonts = {
     Code = Enum.Font.Code
 }
 
--- Cache de instâncias
-local Instances = {}
-local ActiveBinds = {}
-local ExecutorCache = nil
-
 -- ======================================
--- UTILITÁRIOS OTIMIZADOS
+-- UTILITÁRIOS
 -- ======================================
-local function Create(class, props)
+local function Create(class, props, children)
     local obj = Instance.new(class)
-    for k, v in pairs(props) do
+    
+    for k, v in pairs(props or {}) do
         if k ~= "Parent" then
             obj[k] = v
         end
     end
+    
+    if props and props.Parent then
+        obj.Parent = props.Parent
+    end
+    
+    if children then
+        for _, child in ipairs(children) do
+            child.Parent = obj
+        end
+    end
+    
     return obj
 end
 
 local function Tween(obj, props, duration)
-    local tween = TweenService:Create(obj, TweenInfo.new(duration or 0.2, Enum.EasingStyle.Quint), props)
-    tween:Play()
-    return tween
+    duration = duration or 0.2
+    local ti = TweenInfo.new(duration, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local tw = TweenService:Create(obj, ti, props)
+    tw:Play()
+    return tw
 end
 
+-- Detectar executor (cache)
+local cachedExecutor = nil
 local function GetExecutor()
-    if ExecutorCache then return ExecutorCache end
+    if cachedExecutor then return cachedExecutor end
     
-    local executors = {
-        {"identifyexecutor", "Executor"},
-        {"getexecutorname", "Executor"},
-        {_G.Executor, "Global"},
-        {ArceusX, "Arceus X"},
-        {Hydrogen, "Hydrogen"},
-        {Delta, "Delta"},
-        {Codex, "Codex"},
-        {VegaX, "Vega X"},
-        {Xeno, "Xeno"},
-        {Valex, "Valex"}
-    }
-    
-    for _, executor in pairs(executors) do
-        if executor[1] then
-            ExecutorCache = executor[2]
-            return executor[2]
+    local exec = "Unknown"
+    pcall(function()
+        if identifyexecutor then exec = identifyexecutor()
+        elseif getexecutorname then exec = getexecutorname()
+        elseif _G.Executor then exec = tostring(_G.Executor)
+        elseif ArceusX then exec = "Arceus X"
+        elseif Hydrogen then exec = "Hydrogen"
+        elseif Delta then exec = "Delta"
+        elseif Codex then exec = "Codex"
+        elseif VegaX then exec = "Vega X"
+        elseif Xeno then exec = "Xeno"
+        elseif Valex then exec = "Valex"
+        elseif Nihon then exec = "Nihon"
+        elseif Volcano then exec = "Volcano"
+        elseif Bunni then exec = "Bunni"
+        elseif Velocity then exec = "Velocity"
+        elseif LX63 then exec = "LX63"
+        elseif Visual then exec = "Visual"
+        elseif isexecutorclosure then exec = "Executor"
         end
-    end
+    end)
     
-    ExecutorCache = "Unknown"
-    return "Unknown"
-end
-
-local function DeepCopy(tbl)
-    local copy = {}
-    for k, v in pairs(tbl) do
-        copy[k] = type(v) == "table" and DeepCopy(v) or v
-    end
-    return copy
+    cachedExecutor = exec
+    return exec
 end
 
 -- ======================================
--- TELA DE CARREGAMENTO
+-- COMPONENTES BASE
 -- ======================================
-function GGMenu.CreateLoadingScreen(title)
-    local loadingGui = Create("ScreenGui", {
-        Parent = CoreGui,
-        Name = "GGMenu_Loading",
-        ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    })
-    
-    local container = Create("Frame", {
-        Parent = loadingGui,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundColor3 = GGMenu.Theme.BgDark,
-        BackgroundTransparency = 0.1
-    })
-    
-    local centerFrame = Create("Frame", {
-        Parent = container,
-        Size = UDim2.new(0, 400, 0, 200),
-        Position = UDim2.new(0.5, -200, 0.5, -100),
-        BackgroundColor3 = GGMenu.Theme.BgCard
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
-    })
-    
-    local titleLabel = Create("TextLabel", {
-        Parent = centerFrame,
-        Size = UDim2.new(1, -40, 0, 50),
-        Position = UDim2.new(0, 20, 0, 20),
-        BackgroundTransparency = 1,
-        Text = "GGMenu " .. (title or "v6.0"),
-        TextColor3 = GGMenu.Theme.Accent,
-        TextSize = 28,
-        Font = GGMenu.Fonts.Title
-    })
-    
-    local statusLabel = Create("TextLabel", {
-        Parent = centerFrame,
-        Size = UDim2.new(1, -40, 0, 30),
-        Position = UDim2.new(0, 20, 0, 90),
-        BackgroundTransparency = 1,
-        Text = "Loading...",
-        TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = 18,
-        Font = GGMenu.Fonts.Body
-    })
-    
-    local progressBar = Create("Frame", {
-        Parent = centerFrame,
-        Size = UDim2.new(1, -40, 0, 6),
-        Position = UDim2.new(0, 20, 1, -40),
-        BackgroundColor3 = GGMenu.Theme.BgCardHover
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
-    })
-    
-    local progressFill = Create("Frame", {
-        Parent = progressBar,
-        Size = UDim2.new(0, 0, 1, 0),
-        BackgroundColor3 = GGMenu.Theme.Accent
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
-    })
-    
-    local loading = {
-        Gui = loadingGui,
-        SetStatus = function(text)
-            statusLabel.Text = text
-        end,
-        SetProgress = function(percent)
-            Tween(progressFill, {Size = UDim2.new(percent, 0, 1, 0)})
-        end,
-        Destroy = function()
-            Tween(container, {BackgroundTransparency = 1}, 0.3).Completed:Connect(function()
-                loadingGui:Destroy()
-            end)
-        end
-    }
-    
-    return loading
-end
-
--- ======================================
--- COMPONENTES PRINCIPAIS
--- ======================================
-function GGMenu.CreateToggle(parent, text, default, callback)
-    local toggle = {
-        Value = default or false,
-        Callback = callback
-    }
-    
+function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     local container = Create("Frame", {
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 36),
+        Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
-        LayoutOrder = #parent:GetChildren()
+        LayoutOrder = 0
     })
     
     local label = Create("TextLabel", {
@@ -206,63 +119,70 @@ function GGMenu.CreateToggle(parent, text, default, callback)
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
-    local toggleButton = Create("TextButton", {
+    local toggleFrame = Create("Frame", {
         Parent = container,
-        Size = UDim2.new(0, 48, 0, 24),
+        Size = UDim2.new(0, 48, 0, 26),
         Position = UDim2.new(1, -48, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = default and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
-        AutoButtonColor = false,
-        Text = ""
+        BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
+        BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
-    local toggleDot = Create("Frame", {
-        Parent = toggleButton,
-        Size = UDim2.new(0, 16, 0, 16),
-        Position = default and UDim2.new(1, -18, 0.5, 0) or UDim2.new(0, 2, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = Color3.new(1, 1, 1)
+    local toggleCircle = Create("Frame", {
+        Parent = toggleFrame,
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = defaultValue and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
+        AnchorPoint = Vector2.new(defaultValue and 1 or 0, 0.5),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)})
     })
     
-    function toggle:Set(value)
-        self.Value = value
-        Tween(toggleButton, {BackgroundColor3 = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard})
-        Tween(toggleDot, {Position = value and UDim2.new(1, -18, 0.5, 0) or UDim2.new(0, 2, 0.5, 0)})
-        if self.Callback then self.Callback(value) end
-    end
+    local toggle = {
+        Value = defaultValue or false,
+        Container = container,
+        
+        Set = function(self, value)
+            self.Value = value
+            Tween(toggleFrame, {BackgroundColor3 = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard})
+            Tween(toggleCircle, {Position = value and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)})
+            if callback then callback(value) end
+        end,
+        
+        Toggle = function(self)
+            self:Set(not self.Value)
+        end,
+        
+        Destroy = function(self)
+            container:Destroy()
+        end
+    }
     
-    function toggle:Toggle()
-        self:Set(not self.Value)
-    end
-    
-    toggleButton.MouseButton1Click:Connect(function()
-        toggle:Toggle()
+    toggleFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            toggle:Toggle()
+        end
     end)
     
     return toggle
 end
 
-function GGMenu.CreateSlider(parent, text, min, max, default, callback)
-    local slider = {
-        Value = default or min,
-        Min = min,
-        Max = max
-    }
-    
+function GGMenu.CreateSlider(parent, text, min, max, defaultValue, callback)
+    local isFloat = (defaultValue or min) % 1 ~= 0
     local container = Create("Frame", {
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 50),
-        BackgroundTransparency = 1
+        BackgroundTransparency = 1,
+        LayoutOrder = 0
     })
     
     local label = Create("TextLabel", {
         Parent = container,
-        Size = UDim2.new(0.7, 0, 0, 20),
+        Size = UDim2.new(1, -60, 0, 20),
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = GGMenu.Theme.TextPrimary,
@@ -273,74 +193,91 @@ function GGMenu.CreateSlider(parent, text, min, max, default, callback)
     
     local valueLabel = Create("TextLabel", {
         Parent = container,
-        Size = UDim2.new(0.3, 0, 0, 20),
-        Position = UDim2.new(0.7, 0, 0, 0),
+        Size = UDim2.new(0, 60, 0, 20),
+        Position = UDim2.new(1, -60, 0, 0),
         BackgroundTransparency = 1,
-        Text = tostring(default or min),
+        Text = isFloat and string.format("%.2f", defaultValue or min) or tostring(defaultValue or min),
         TextColor3 = GGMenu.Theme.TextSecondary,
-        TextSize = 13,
+        TextSize = 12,
         Font = GGMenu.Fonts.Code
     })
     
-    local track = Create("Frame", {
+    local sliderTrack = Create("Frame", {
         Parent = container,
         Size = UDim2.new(1, 0, 0, 6),
-        Position = UDim2.new(0, 0, 1, -18),
-        BackgroundColor3 = GGMenu.Theme.BgCard
+        Position = UDim2.new(0, 0, 1, -20),
+        BackgroundColor3 = GGMenu.Theme.BgCard,
+        BorderSizePixel = 0
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(0, 3)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+    })
+    
+    local sliderFill = Create("Frame", {
+        Parent = sliderTrack,
+        Size = UDim2.new((defaultValue - min) / (max - min), 0, 1, 0),
+        BackgroundColor3 = GGMenu.Theme.Accent,
+        BorderSizePixel = 0
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(0, 3)})
+    })
+    
+    local sliderButton = Create("Frame", {
+        Parent = sliderTrack,
+        Size = UDim2.new(0, 16, 0, 16),
+        Position = UDim2.new((defaultValue - min) / (max - min), -8, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
-    local fill = Create("Frame", {
-        Parent = track,
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
-        BackgroundColor3 = GGMenu.Theme.Accent
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
-    })
-    
-    local knob = Create("Frame", {
-        Parent = track,
-        Size = UDim2.new(0, 16, 0, 16),
-        Position = UDim2.new((default - min) / (max - min), -8, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = Color3.new(1, 1, 1)
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
-    })
-    
-    function slider:Set(value)
-        value = math.clamp(value, self.Min, self.Max)
-        self.Value = value
-        local percent = (value - self.Min) / (self.Max - self.Min)
+    local slider = {
+        Value = defaultValue or min,
+        Min = min,
+        Max = max,
+        Container = container,
+        IsFloat = isFloat,
         
-        fill.Size = UDim2.new(percent, 0, 1, 0)
-        knob.Position = UDim2.new(percent, -8, 0.5, 0)
-        valueLabel.Text = string.format("%.2f", value)
+        Set = function(self, value)
+            value = math.clamp(value, min, max)
+            self.Value = value
+            local percent = (value - min) / (max - min)
+            
+            sliderFill.Size = UDim2.new(percent, 0, 1, 0)
+            sliderButton.Position = UDim2.new(percent, -8, 0.5, 0)
+            valueLabel.Text = self.IsFloat and string.format("%.2f", value) or tostring(math.floor(value))
+            
+            if callback then callback(value) end
+        end,
         
-        if callback then callback(value) end
-    end
+        Destroy = function(self)
+            container:Destroy()
+        end
+    }
     
     local dragging = false
     
-    local function update(input)
-        local x = (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
-        local percent = math.clamp(x, 0, 1)
+    local function updateSlider(input)
+        local x = input.Position.X - sliderTrack.AbsolutePosition.X
+        local percent = math.clamp(x / sliderTrack.AbsoluteSize.X, 0, 1)
         local value = min + (max - min) * percent
+        if not isFloat then value = math.floor(value) end
         slider:Set(value)
     end
     
-    track.InputBegan:Connect(function(input)
+    sliderTrack.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             dragging = true
-            update(input)
+            updateSlider(input)
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
         if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            update(input)
+            updateSlider(input)
         end
     end)
     
@@ -353,14 +290,33 @@ function GGMenu.CreateSlider(parent, text, min, max, default, callback)
     return slider
 end
 
-function GGMenu.CreateButton(parent, text, callback)
-    local button = Create("TextButton", {
+function GGMenu.CreateDropdown(parent, text, options, defaultValue, callback)
+    local container = Create("Frame", {
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 36),
-        BackgroundColor3 = GGMenu.Theme.BgCard,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
+        LayoutOrder = 0
+    })
+    
+    local label = Create("TextLabel", {
+        Parent = container,
+        Size = UDim2.new(0.5, 0, 0, 20),
+        BackgroundTransparency = 1,
         Text = text,
         TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = 14,
+        Font = GGMenu.Fonts.Body,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    local dropdownButton = Create("TextButton", {
+        Parent = container,
+        Size = UDim2.new(0.5, 0, 0, 32),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        BackgroundColor3 = GGMenu.Theme.BgCard,
+        Text = defaultValue or options[1],
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = 13,
         Font = GGMenu.Fonts.Body,
         AutoButtonColor = false
     }, {
@@ -368,84 +324,265 @@ function GGMenu.CreateButton(parent, text, callback)
         Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
-    button.MouseEnter:Connect(function()
-        Tween(button, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
+    dropdownButton.MouseEnter:Connect(function()
+        Tween(dropdownButton, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
     end)
     
-    button.MouseLeave:Connect(function()
-        Tween(button, {BackgroundColor3 = GGMenu.Theme.BgCard})
+    dropdownButton.MouseLeave:Connect(function()
+        Tween(dropdownButton, {BackgroundColor3 = GGMenu.Theme.BgCard})
     end)
     
-    button.MouseButton1Click:Connect(function()
-        if callback then callback() end
-    end)
+    local dropdownOpen = false
+    local dropdownFrame = nil
     
-    return button
-end
-
--- ======================================
--- SISTEMA DE BIND
--- ======================================
-function GGMenu.BindKey(keyCode, callback)
-    local bind = {
-        Key = keyCode,
-        Callback = callback,
-        Active = true
-    }
-    
-    table.insert(ActiveBinds, bind)
-    
-    return {
-        Unbind = function()
-            bind.Active = false
-            for i, b in ipairs(ActiveBinds) do
-                if b == bind then
-                    table.remove(ActiveBinds, i)
-                    break
-                end
-            end
+    local function closeDropdown()
+        if dropdownFrame then
+            dropdownFrame:Destroy()
+            dropdownFrame = nil
         end
-    }
-end
-
-UserInputService.InputBegan:Connect(function(input)
-    if input.KeyCode then
-        for _, bind in ipairs(ActiveBinds) do
-            if bind.Active and input.KeyCode == bind.Key then
-                pcall(bind.Callback)
-                break
+        dropdownOpen = false
+    end
+    
+    local function toggleDropdown()
+        if dropdownOpen then
+            closeDropdown()
+        else
+            dropdownOpen = true
+            dropdownFrame = Create("Frame", {
+                Parent = container,
+                Size = UDim2.new(0.5, 0, 0, math.min(#options * 32, 160)),
+                Position = UDim2.new(0.5, 0, 0, 35),
+                BackgroundColor3 = GGMenu.Theme.BgDark,
+                BorderSizePixel = 0,
+                ZIndex = 100
+            }, {
+                Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+            })
+            
+            for i, option in ipairs(options) do
+                local optionBtn = Create("TextButton", {
+                    Parent = dropdownFrame,
+                    Size = UDim2.new(1, 0, 0, 32),
+                    Position = UDim2.new(0, 0, 0, (i-1)*32),
+                    BackgroundColor3 = GGMenu.Theme.BgDark,
+                    Text = option,
+                    TextColor3 = GGMenu.Theme.TextPrimary,
+                    TextSize = 13,
+                    Font = GGMenu.Fonts.Body,
+                    AutoButtonColor = false,
+                    ZIndex = 101
+                })
+                
+                optionBtn.MouseEnter:Connect(function()
+                    Tween(optionBtn, {BackgroundColor3 = GGMenu.Theme.BgCard})
+                end)
+                
+                optionBtn.MouseLeave:Connect(function()
+                    Tween(optionBtn, {BackgroundColor3 = GGMenu.Theme.BgDark})
+                end)
+                
+                optionBtn.MouseButton1Click:Connect(function()
+                    dropdownButton.Text = option
+                    closeDropdown()
+                    if callback then callback(option) end
+                end)
             end
         end
     end
-end)
+    
+    dropdownButton.MouseButton1Click:Connect(toggleDropdown)
+    
+    -- Fechar ao clicar fora
+    local clickConnection = UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and dropdownFrame then
+            local mousePos = UserInputService:GetMouseLocation()
+            local framePos = dropdownFrame.AbsolutePosition
+            local frameSize = dropdownFrame.AbsoluteSize
+            
+            if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
+                   mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
+                closeDropdown()
+            end
+        end
+    end)
+    
+    local dropdown = {
+        Container = container,
+        GetValue = function() return dropdownButton.Text end,
+        SetValue = function(value) 
+            dropdownButton.Text = value
+            if callback then callback(value) end
+        end,
+        Destroy = function(self)
+            clickConnection:Disconnect()
+            container:Destroy()
+        end
+    }
+    
+    return dropdown
+end
 
 -- ======================================
--- JANELA PRINCIPAL
+-- FPS BAR
+-- ======================================
+function GGMenu.CreateFPSBar()
+    local screenGui = Create("ScreenGui", {
+        Parent = CoreGui,
+        Name = "GGMenu_FPSBar",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 1000
+    })
+    
+    local bar = Create("Frame", {
+        Parent = screenGui,
+        Size = UDim2.new(0, 450, 0, 32),
+        Position = UDim2.new(0, 10, 1, -42),
+        BackgroundColor3 = GGMenu.Theme.BgCard,
+        BackgroundTransparency = 0.1,
+        BorderSizePixel = 0
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1.2})
+    })
+    
+    local textLabel = Create("TextLabel", {
+        Parent = bar,
+        Size = UDim2.new(1, -15, 1, 0),
+        Position = UDim2.new(0, 12, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "GGMenu | Loading...",
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = 13,
+        Font = GGMenu.Fonts.Code,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextStrokeTransparency = 0.7
+    })
+    
+    local statusDot = Create("Frame", {
+        Parent = bar,
+        Size = UDim2.new(0, 6, 0, 6),
+        Position = UDim2.new(1, -15, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = GGMenu.Theme.Success,
+        BorderSizePixel = 0
+    }, {
+        Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+    })
+    
+    -- Sistema de arrastar manual
+    local dragging = false
+    local dragStart, startPos
+    
+    bar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = bar.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            bar.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    -- Atualização FPS
+    local last = tick()
+    local fps = 60
+    local fpsSamples = {}
+    local executor = GetExecutor()
+    
+    RunService.RenderStepped:Connect(function()
+        local now = tick()
+        local currentFPS = math.floor(1 / math.max(now - last, 0.0001))
+        last = now
+        
+        table.insert(fpsSamples, currentFPS)
+        if #fpsSamples > 30 then table.remove(fpsSamples, 1) end
+        
+        local total = 0
+        for _, v in ipairs(fpsSamples) do total = total + v end
+        fps = math.floor(total / #fpsSamples)
+        
+        -- Atualizar cor
+        if fps >= 50 then
+            statusDot.BackgroundColor3 = GGMenu.Theme.Success
+        elseif fps >= 30 then
+            statusDot.BackgroundColor3 = GGMenu.Theme.Warning
+        else
+            statusDot.BackgroundColor3 = GGMenu.Theme.Danger
+        end
+        
+        -- Pegar ping
+        local ping = 0
+        pcall(function()
+            if Stats.Network and Stats.Network.ServerStatsItem then
+                local pingItem = Stats.Network.ServerStatsItem["Data Ping"]
+                if pingItem then
+                    ping = math.floor(pingItem:GetValue())
+                end
+            end
+        end)
+        
+        local timeStr = os.date("%H:%M:%S")
+        textLabel.Text = string.format(
+            "GGMenu | %s | %d FPS | %d ms | %s | %s",
+            Players.LocalPlayer.Name, fps, ping, timeStr, executor
+        )
+    end)
+    
+    local fpsBar = {
+        Gui = screenGui,
+        Bar = bar,
+        SetVisible = function(self, visible) screenGui.Enabled = visible end,
+        Destroy = function(self) screenGui:Destroy() end
+    }
+    
+    return fpsBar
+end
+
+-- ======================================
+-- JANELA COM TABS
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
         Parent = CoreGui,
         Name = "GGMenu_Window",
         ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        DisplayOrder = 2000
     })
     
     local mainFrame = Create("Frame", {
         Parent = screenGui,
-        Size = UDim2.new(0, 600, 0, 650), -- Mais esticada
-        Position = UDim2.new(0.5, -300, 0.5, -325),
+        Size = UDim2.new(0, 500, 0, 550),
+        Position = UDim2.new(0.5, -250, 0.5, -275),
         BackgroundColor3 = GGMenu.Theme.BgCard,
-        Visible = false
+        BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
         Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
     })
     
-    -- Header com drag
+    -- Header (área de drag)
     local header = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, 0, 0, 50),
-        BackgroundColor3 = GGMenu.Theme.BgDark
+        Size = UDim2.new(1, 0, 0, 60),
+        BackgroundColor3 = GGMenu.Theme.BgDark,
+        BorderSizePixel = 0
     }, {
         Create("UICorner", {CornerRadius = UDim.new(0, 12, 0, 0)})
     })
@@ -453,9 +590,9 @@ function GGMenu.CreateWindow(title)
     local titleLabel = Create("TextLabel", {
         Parent = header,
         Size = UDim2.new(1, -100, 1, 0),
-        Position = UDim2.new(0, 15, 0, 0),
+        Position = UDim2.new(0, 20, 0, 0),
         BackgroundTransparency = 1,
-        Text = title or "GGMenu v6.0",
+        Text = title,
         TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = 20,
         Font = GGMenu.Fonts.Title,
@@ -464,21 +601,31 @@ function GGMenu.CreateWindow(title)
     
     local closeButton = Create("TextButton", {
         Parent = header,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(1, -35, 0.5, 0),
+        Size = UDim2.new(0, 32, 0, 32),
+        Position = UDim2.new(1, -40, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = GGMenu.Theme.Danger,
+        BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = "×",
-        TextColor3 = Color3.new(1, 1, 1),
-        TextSize = 20,
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = 24,
         Font = Enum.Font.GothamBold,
         AutoButtonColor = false
     }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 6)})
+        Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+        Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
-    -- Sistema de drag
-    local dragging, dragStart, startPos = false
+    closeButton.MouseEnter:Connect(function()
+        Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.Danger, TextColor3 = Color3.new(1, 1, 1)})
+    end)
+    
+    closeButton.MouseLeave:Connect(function()
+        Tween(closeButton, {BackgroundColor3 = GGMenu.Theme.BgCard, TextColor3 = GGMenu.Theme.TextPrimary})
+    end)
+    
+    -- Sistema de drag manual
+    local dragging = false
+    local dragStart, startPos
     
     header.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -505,291 +652,404 @@ function GGMenu.CreateWindow(title)
     end)
     
     -- Área de tabs
-    local tabContainer = Create("Frame", {
+    local tabsContainer = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, 0, 0, 40),
-        Position = UDim2.new(0, 0, 0, 50),
+        Position = UDim2.new(0, 0, 0, 60),
         BackgroundTransparency = 1
     })
     
-    local contentContainer = Create("Frame", {
+    local tabsList = Create("Frame", {
+        Parent = tabsContainer,
+        Size = UDim2.new(1, -20, 1, 0),
+        Position = UDim2.new(0, 10, 0, 0),
+        BackgroundTransparency = 1
+    })
+    
+    -- Área de conteúdo
+    local contentArea = Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, -20, 1, -100),
-        Position = UDim2.new(0, 10, 0, 95),
+        Size = UDim2.new(1, -30, 1, -110),
+        Position = UDim2.new(0, 15, 0, 105),
         BackgroundTransparency = 1
     })
     
+    -- Variáveis da janela
     local tabs = {}
     local currentTab = nil
+    local windowVisible = false -- Começa invisível
     
+    -- Funções da janela
     local window = {
         Gui = screenGui,
         Frame = mainFrame,
-        Tabs = {}
-    }
-    
-    function window:AddTab(name)
-        local tabId = #tabs + 1
-        local tabButton = Create("TextButton", {
-            Parent = tabContainer,
-            Size = UDim2.new(0, 90, 1, 0),
-            Position = UDim2.new(0, (tabId-1)*95, 0, 0),
-            BackgroundColor3 = tabId == 1 and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
-            Text = name,
-            TextColor3 = tabId == 1 and Color3.new(1,1,1) or GGMenu.Theme.TextSecondary,
-            TextSize = 13,
-            Font = GGMenu.Fonts.Body,
-            AutoButtonColor = false
-        }, {
-            Create("UICorner", {CornerRadius = UDim.new(0, 6)})
-        })
+        Tabs = {},
         
-        local tabContent = Create("ScrollingFrame", {
-            Parent = contentContainer,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            ScrollBarThickness = 4,
-            ScrollBarImageColor3 = GGMenu.Theme.Accent,
-            Visible = tabId == 1,
-            CanvasSize = UDim2.new(0, 0, 0, 0)
-        })
-        
-        local content = Create("Frame", {
-            Parent = tabContent,
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundTransparency = 1
-        })
-        
-        local layout = Create("UIListLayout", {
-            Parent = content,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 8)
-        })
-        
-        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            tabContent.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
-        end)
-        
-        local tab = {
-            Name = name,
-            Button = tabButton,
-            Content = content,
-            Container = tabContent
-        }
-        
-        tabs[tabId] = tab
-        window.Tabs[name] = tab
-        
-        tabButton.MouseButton1Click:Connect(function()
-            for i, t in ipairs(tabs) do
-                t.Container.Visible = false
-                t.Button.BackgroundColor3 = GGMenu.Theme.BgCard
-                t.Button.TextColor3 = GGMenu.Theme.TextSecondary
-            end
+        AddTab = function(self, tabName)
+            local tabId = #tabs + 1
             
-            tab.Container.Visible = true
-            tab.Button.BackgroundColor3 = GGMenu.Theme.Accent
-            tab.Button.TextColor3 = Color3.new(1,1,1)
-            currentTab = tabId
-        end)
-        
-        local interface = {}
-        
-        function interface:AddToggle(text, default, callback)
-            local toggle = GGMenu.CreateToggle(content, text, default, callback)
-            toggle.Container.LayoutOrder = #content:GetChildren()
-            return toggle
-        end
-        
-        function interface:AddSlider(text, min, max, default, callback)
-            local slider = GGMenu.CreateSlider(content, text, min, max, default, callback)
-            slider.Container.LayoutOrder = #content:GetChildren()
-            return slider
-        end
-        
-        function interface:AddButton(text, callback)
-            local button = GGMenu.CreateButton(content, text, callback)
-            button.LayoutOrder = #content:GetChildren()
-            return button
-        end
-        
-        function interface:AddLabel(text)
-            local label = Create("TextLabel", {
-                Parent = content,
-                Size = UDim2.new(1, 0, 0, 25),
-                BackgroundTransparency = 1,
-                Text = text,
+            -- Criar botão da tab
+            local tabButton = Create("TextButton", {
+                Parent = tabsList,
+                Size = UDim2.new(0, 80, 1, 0),
+                Position = UDim2.new(0, (#tabs * 85), 0, 0),
+                BackgroundColor3 = GGMenu.Theme.BgCard,
+                Text = tabName,
                 TextColor3 = GGMenu.Theme.TextSecondary,
                 TextSize = 13,
                 Font = GGMenu.Fonts.Body,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                LayoutOrder = #content:GetChildren()
+                AutoButtonColor = false
+            }, {
+                Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
+                Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
             })
-            return label
-        end
-        
-        function interface:AddDivider()
-            local divider = Create("Frame", {
-                Parent = content,
-                Size = UDim2.new(1, 0, 0, 1),
-                BackgroundColor3 = GGMenu.Theme.Border,
-                LayoutOrder = #content:GetChildren()
+            
+            -- Criar conteúdo da tab
+            local tabContent = Create("ScrollingFrame", {
+                Parent = contentArea,
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                ScrollBarThickness = 4,
+                ScrollBarImageColor3 = GGMenu.Theme.Accent,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                BorderSizePixel = 0,
+                Visible = false
             })
-            return divider
-        end
-        
-        return interface
-    end
-    
-    function window:SetVisible(visible)
-        if visible then
-            mainFrame.Visible = true
-            Tween(mainFrame, {Size = UDim2.new(0, 600, 0, 650)}, 0.3)
-        else
-            Tween(mainFrame, {Size = UDim2.new(0, 600, 0, 0)}, 0.2).Completed:Connect(function()
-                mainFrame.Visible = false
+            
+            local componentsContainer = Create("Frame", {
+                Parent = tabContent,
+                Size = UDim2.new(1, 0, 0, 0),
+                BackgroundTransparency = 1
+            })
+            
+            local listLayout = Create("UIListLayout", {
+                Parent = componentsContainer,
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding = UDim.new(0, 5)
+            })
+            
+            listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+                tabContent.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
             end)
+            
+            -- Função para mostrar/ocultar tab
+            local function showTab()
+                -- Esconder todas as tabs
+                for _, tabData in pairs(tabs) do
+                    tabData.Content.Visible = false
+                    Tween(tabData.Button, {
+                        BackgroundColor3 = GGMenu.Theme.BgCard,
+                        TextColor3 = GGMenu.Theme.TextSecondary
+                    })
+                end
+                
+                -- Mostrar esta tab
+                tabContent.Visible = true
+                Tween(tabButton, {
+                    BackgroundColor3 = GGMenu.Theme.Accent,
+                    TextColor3 = Color3.new(1, 1, 1)
+                })
+                
+                currentTab = tabId
+            end
+            
+            -- Evento do botão
+            tabButton.MouseButton1Click:Connect(showTab)
+            
+            tabButton.MouseEnter:Connect(function()
+                if currentTab ~= tabId then
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCardHover})
+                end
+            end)
+            
+            tabButton.MouseLeave:Connect(function()
+                if currentTab ~= tabId then
+                    Tween(tabButton, {BackgroundColor3 = GGMenu.Theme.BgCard})
+                end
+            end)
+            
+            -- Armazenar tab
+            local tabData = {
+                Name = tabName,
+                Button = tabButton,
+                Content = tabContent,
+                Container = componentsContainer,
+                Show = showTab
+            }
+            
+            tabs[tabId] = tabData
+            self.Tabs[tabName] = tabData
+            
+            -- Se for a primeira tab, mostrar
+            if tabId == 1 then
+                showTab()
+            end
+            
+            -- Retornar interface para adicionar componentes
+            local tabInterface = {}
+            
+            function tabInterface:AddSection(title)
+                local section = Create("Frame", {
+                    Parent = componentsContainer,
+                    Size = UDim2.new(1, 0, 0, 35),
+                    BackgroundTransparency = 1,
+                    LayoutOrder = 0
+                })
+                
+                Create("TextLabel", {
+                    Parent = section,
+                    Size = UDim2.new(1, 0, 1, 0),
+                    BackgroundTransparency = 1,
+                    Text = title:upper(),
+                    TextColor3 = GGMenu.Theme.Accent,
+                    TextSize = 14,
+                    Font = GGMenu.Fonts.Header,
+                    TextXAlignment = Enum.TextXAlignment.Left
+                })
+                
+                local sectionInterface = {}
+                
+                function sectionInterface:AddToggle(text, default, callback)
+                    local toggle = GGMenu.CreateToggle(componentsContainer, text, default, callback)
+                    toggle.Container.LayoutOrder = 0
+                    return toggle
+                end
+                
+                function sectionInterface:AddSlider(text, min, max, default, callback)
+                    local slider = GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
+                    slider.Container.LayoutOrder = 0
+                    return slider
+                end
+                
+                function sectionInterface:AddDropdown(text, options, default, callback)
+                    local dropdown = GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
+                    dropdown.Container.LayoutOrder = 0
+                    return dropdown
+                end
+                
+                function sectionInterface:AddLabel(text)
+                    local label = Create("TextLabel", {
+                        Parent = componentsContainer,
+                        Size = UDim2.new(1, 0, 0, 25),
+                        LayoutOrder = 0,
+                        BackgroundTransparency = 1,
+                        Text = text,
+                        TextColor3 = GGMenu.Theme.TextSecondary,
+                        TextSize = 13,
+                        Font = GGMenu.Fonts.Body,
+                        TextXAlignment = Enum.TextXAlignment.Left
+                    })
+                    return label
+                end
+                
+                function sectionInterface:AddSpacer(height)
+                    local spacer = Create("Frame", {
+                        Parent = componentsContainer,
+                        Size = UDim2.new(1, 0, 0, height or 20),
+                        LayoutOrder = 0,
+                        BackgroundTransparency = 1
+                    })
+                    return spacer
+                end
+                
+                return sectionInterface
+            end
+            
+            function tabInterface:AddToggle(text, default, callback)
+                return GGMenu.CreateToggle(componentsContainer, text, default, callback)
+            end
+            
+            function tabInterface:AddSlider(text, min, max, default, callback)
+                return GGMenu.CreateSlider(componentsContainer, text, min, max, default, callback)
+            end
+            
+            function tabInterface:AddDropdown(text, options, default, callback)
+                return GGMenu.CreateDropdown(componentsContainer, text, options, default, callback)
+            end
+            
+            function tabInterface:AddLabel(text)
+                local label = Create("TextLabel", {
+                    Parent = componentsContainer,
+                    Size = UDim2.new(1, 0, 0, 25),
+                    LayoutOrder = 0,
+                    BackgroundTransparency = 1,
+                    Text = text,
+                    TextColor3 = GGMenu.Theme.TextSecondary,
+                    TextSize = 13,
+                    Font = GGMenu.Fonts.Body,
+                    TextXAlignment = Enum.TextXAlignment.Left
+                })
+                return label
+            end
+            
+            function tabInterface:AddSpacer(height)
+                local spacer = Create("Frame", {
+                    Parent = componentsContainer,
+                    Size = UDim2.new(1, 0, 0, height or 20),
+                    LayoutOrder = 0,
+                    BackgroundTransparency = 1
+                })
+                return spacer
+            end
+            
+            return tabInterface
+        end,
+        
+        SetVisible = function(self, visible)
+            mainFrame.Visible = visible
+            windowVisible = visible
+        end,
+        
+        Destroy = function(self)
+            screenGui:Destroy()
         end
-    end
+    }
     
-    function window:Toggle()
-        self:SetVisible(not mainFrame.Visible)
-    end
-    
+    -- Fechar janela
     closeButton.MouseButton1Click:Connect(function()
         window:SetVisible(false)
     end)
     
-    -- Bind padrão: INSERT
-    GGMenu.BindKey(Enum.KeyCode.Insert, function()
-        window:Toggle()
-    end)
+    -- Começar invisível
+    window:SetVisible(false)
     
     return window
 end
 
 -- ======================================
--- FPS BAR SIMPLIFICADA
+-- INICIALIZAÇÃO MODULAR
 -- ======================================
-function GGMenu.CreateFPSBar()
-    local screenGui = Create("ScreenGui", {
-        Parent = CoreGui,
-        Name = "GGMenu_FPS",
-        ResetOnSpawn = false
-    })
+function GGMenu:Init(showFPSBar)
+    showFPSBar = showFPSBar ~= false
     
-    local bar = Create("Frame", {
-        Parent = screenGui,
-        Size = UDim2.new(0, 300, 0, 28),
-        Position = UDim2.new(0, 10, 1, -38),
-        BackgroundColor3 = GGMenu.Theme.BgCard,
-        BackgroundTransparency = 0.1
-    }, {
-        Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-        Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 1})
-    })
+    local components = {}
     
-    local label = Create("TextLabel", {
-        Parent = bar,
-        Size = UDim2.new(1, -10, 1, 0),
-        Position = UDim2.new(0, 8, 0, 0),
-        BackgroundTransparency = 1,
-        Text = "FPS: 60 | PING: 0",
-        TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = 12,
-        Font = GGMenu.Fonts.Code,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    
-    -- Atualização FPS
-    local lastUpdate = tick()
-    local fps = 60
-    local samples = {}
-    
-    RunService.RenderStepped:Connect(function()
-        local now = tick()
-        local delta = now - lastUpdate
-        lastUpdate = now
-        
-        local currentFPS = math.floor(1 / math.max(delta, 0.0001))
-        table.insert(samples, currentFPS)
-        if #samples > 30 then table.remove(samples, 1) end
-        
-        local total = 0
-        for _, v in ipairs(samples) do total = total + v end
-        fps = math.floor(total / #samples)
-        
-        -- Ping
-        local ping = 0
-        pcall(function()
-            local stats = Stats.Network:FindFirstChild("ServerStatsItem")
-            if stats then
-                local pingItem = stats:FindFirstChild("Data Ping")
-                if pingItem then
-                    ping = math.floor(pingItem:GetValue())
-                end
-            end
-        end)
-        
-        label.Text = string.format("GGMenu | %d FPS | %d ms | %s", fps, ping, GetExecutor())
-    end)
-    
-    return {
-        Gui = screenGui,
-        SetVisible = function(visible) screenGui.Enabled = visible end,
-        Destroy = function() screenGui:Destroy() end
-    }
-end
-
--- ======================================
--- INICIALIZAÇÃO PRINCIPAL
--- ======================================
-function GGMenu:Init(options)
-    options = options or {}
-    
-    -- Mostrar loading
-    local loading = self.CreateLoadingScreen("v6.0")
-    loading.SetStatus("Initializing...")
-    loading.SetProgress(0.3)
-    
-    -- Criar FPS Bar se solicitado
-    local fpsBar
-    if options.ShowFPS ~= false then
-        loading.SetStatus("Creating FPS Bar...")
-        fpsBar = self.CreateFPSBar()
-        loading.SetProgress(0.6)
+    -- FPS Bar (opcional)
+    if showFPSBar then
+        components.FPSBar = self.CreateFPSBar()
     end
     
-    -- Criar janela principal
-    loading.SetStatus("Creating Main Window...")
-    local window = self.CreateWindow(options.Title or "GGMenu v6.0")
-    loading.SetProgress(0.9)
+    -- Janela (começa invisível)
+    components.Window = self.CreateWindow("GGMenu v5.2")
     
-    -- Remover loading
-    task.wait(0.5)
-    loading.SetStatus("Ready!")
-    loading.SetProgress(1)
-    task.wait(0.3)
-    loading.Destroy()
+    -- Hotkey para mostrar/ocultar (INSERT)
+    local toggleConnection = UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            components.Window:SetVisible(not components.Window.Frame.Visible)
+        end
+    end)
     
-    -- Bind de teclas customizadas
-    if options.Binds then
-        for key, func in pairs(options.Binds) do
-            self.BindKey(key, func)
+    -- Conectar para limpeza
+    components.DestroyAll = function()
+        toggleConnection:Disconnect()
+        if components.FPSBar then
+            components.FPSBar:Destroy()
+        end
+        if components.Window then
+            components.Window:Destroy()
         end
     end
     
-    print("GGMenu v6.0 Initialized!")
+    print("GGMenu v5.2 loaded!")
     print("Executor:", GetExecutor())
-    print("Press INSERT to toggle menu")
+    print("Press INSERT to show/hide menu")
     
+    return components
+end
+
+
+-- ======================================
+-- BIND DE TECLAS
+-- ======================================
+local activeBinds = {}
+
+function GGMenu.BindKey(keyCode, callback)
+    -- Armazenar bind
+    table.insert(activeBinds, {Key = keyCode, Callback = callback})
+end
+
+-- Detectar pressionamento
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    for _, bind in ipairs(activeBinds) do
+        if input.KeyCode == bind.Key then
+            pcall(bind.Callback)
+        end
+    end
+end)
+
+
+-- ======================================
+-- Painel de Status Integrado (GGMenu v5.2)
+-- ======================================
+function GGMenu:CreateStatusPanel()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GGMenu_StatusPanel"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = game:GetService("CoreGui")
+
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.new(0, 200, 0, 150)
+    panel.Position = UDim2.new(1, -210, 0, 50)
+    panel.BackgroundColor3 = self.Theme.BgCard
+    panel.BackgroundTransparency = 0.1
+    panel.BorderSizePixel = 1
+    panel.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner", panel)
+    uiCorner.CornerRadius = UDim.new(0, 6)
+
+    local uiList = Instance.new("UIListLayout", panel)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Padding = UDim.new(0, 2)
+
+    local statusLabels = {}
+
+    -- Adiciona nova entrada no painel
+    local function AddStatus(text, initialValue)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -10, 0, 20)
+        lbl.BackgroundTransparency = 1
+        lbl.TextSize = 14
+        lbl.Font = self.Fonts.Header
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextColor3 = initialValue and self.Theme.Accent or self.Theme.TextSecondary
+        lbl.Text = text .. ": " .. (initialValue and "ON" or "OFF")
+        lbl.LayoutOrder = #statusLabels + 1
+        lbl.Parent = panel
+
+        statusLabels[text] = lbl
+        return lbl
+    end
+
+    -- Atualiza o estado de uma entrada
+    local function UpdateStatus(text, value)
+        if statusLabels[text] then
+            statusLabels[text].Text = text .. ": " .. (value and "ON" or "OFF")
+            statusLabels[text].TextColor3 = value and self.Theme.Accent or self.Theme.TextSecondary
+        end
+    end
+
     return {
-        Window = window,
-        FPSBar = fpsBar,
-        BindKey = GGMenu.BindKey,
+        Add = AddStatus,
+        Update = UpdateStatus,
+        Panel = panel
+    }
+end
+
+
+
+-- Versão minimalista para usar apenas componentes
+function GGMenu:CreateLibrary()
+    return {
+        CreateWindow = GGMenu.CreateWindow,
+        CreateFPSBar = GGMenu.CreateFPSBar,
         CreateToggle = GGMenu.CreateToggle,
         CreateSlider = GGMenu.CreateSlider,
-        CreateButton = GGMenu.CreateButton
+        CreateDropdown = GGMenu.CreateDropdown,
+        Theme = GGMenu.Theme,
+        Fonts = GGMenu.Fonts
     }
 end
 
