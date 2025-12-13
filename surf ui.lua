@@ -1042,50 +1042,45 @@ end
 -- ======================================
 -- Partículas de Natal para GGMenu
 -- ======================================
-function GGMenu:CreateSnowParticles(parent, amount, speed, size)
-    amount = amount or 50
-    speed = speed or 50
-    size = size or 6
+-- Função para adicionar partículas natalinas à GGMenu UI Library
+function GGMenu:AddGlobalParticles()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GGMenu_GlobalParticles"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = game:GetService("CoreGui")
 
-    local particles = {}
+    -- Frame invisível cobrindo toda a tela
+    local particleFrame = Instance.new("Frame")
+    particleFrame.Size = UDim2.new(1, 0, 1, 0)
+    particleFrame.Position = UDim2.new(0, 0, 0, 0)
+    particleFrame.BackgroundTransparency = 1
+    particleFrame.Parent = screenGui
+    particleFrame.ZIndex = -1 -- garante que as partículas fiquem atrás de todos os elementos da UI
 
-    local screenSize = parent.AbsoluteSize or Vector2.new(800,600)
-    
-    for i = 1, amount do
-        local part = Instance.new("Frame")
-        part.Size = UDim2.new(0, size, 0, size)
-        part.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        part.BorderSizePixel = 0
-        part.Position = UDim2.new(0, math.random(0, screenSize.X), 0, math.random(-200, -10))
-        part.AnchorPoint = Vector2.new(0,0)
-        part.ZIndex = 9999
-        part.Parent = parent
+    -- Criar ParticleEmitter
+    local emitter = Instance.new("ParticleEmitter")
+    emitter.Parent = particleFrame
+    emitter.Texture = "rbxassetid://2582549326" -- floco de neve ou qualquer partícula festiva
+    emitter.Lifetime = NumberRange.new(3, 6)
+    emitter.Rate = 8
+    emitter.Speed = NumberRange.new(5, 15)
+    emitter.SpreadAngle = Vector2.new(360, 360)
+    emitter.RotSpeed = NumberRange.new(-50, 50)
+    emitter.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.5)})
+    emitter.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1)})
+    emitter.StartColor = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+    emitter.EndColor = ColorSequence.new(Color3.fromRGB(200, 200, 255))
+    emitter.Enabled = true
 
-        local velocity = Vector2.new(math.random(-20, 20)/10, math.random(speed/2, speed)/10)
-
-        table.insert(particles, {Frame=part, Velocity=velocity})
-    end
-
-    RunService.RenderStepped:Connect(function(dt)
-        for i, p in ipairs(particles) do
-            local pos = p.Frame.Position
-            local newX = pos.X.Offset + p.Velocity.X
-            local newY = pos.Y.Offset + p.Velocity.Y
-
-            if newY > screenSize.Y then
-                newY = math.random(-100, -10)
-                newX = math.random(0, screenSize.X)
-            end
-
-            if newX < 0 then newX = screenSize.X end
-            if newX > screenSize.X then newX = 0 end
-
-            p.Frame.Position = UDim2.new(0, newX, 0, newY)
-        end
-    end)
-
-    return particles
+    return emitter
 end
+
+-- Exemplo de uso dentro da Library:
+local GGMenu = require(path_to_ggmenu) -- seu arquivo da library
+local ui = GGMenu:Init(true)
+ui.GlobalParticles = GGMenu:AddGlobalParticles()
+
 
 
 -- Versão minimalista para usar apenas componentes
