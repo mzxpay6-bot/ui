@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.3 (PC Only) - OTIMIZADA cu
+-- GGMenu UI Library v6.3 (PC Only) - CORRIGIDA
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -12,13 +12,12 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 -- ======================================
--- SISTEMA DE CACHE E SINGLETON
+-- SISTEMA DE CACHE
 -- ======================================
 local cachedGuiParent = nil
 local function GetGuiParent()
     if cachedGuiParent then return cachedGuiParent end
     
-    -- Tentar CoreGui primeiro
     local success, coreGui = pcall(function()
         return game:GetService("CoreGui")
     end)
@@ -28,7 +27,6 @@ local function GetGuiParent()
         return coreGui
     end
     
-    -- Fallback para PlayerGui
     local player = Players.LocalPlayer
     while not player do
         task.wait(0.1)
@@ -45,7 +43,7 @@ local function GetGuiParent()
 end
 
 -- ======================================
--- SISTEMA DE TEMA DINÂMICO
+-- TEMA DINÂMICO
 -- ======================================
 GGMenu.Theme = {
     Accent = Color3.fromRGB(232, 84, 84),
@@ -67,19 +65,17 @@ GGMenu.Fonts = {
     Code = Enum.Font.Code
 }
 
--- Registry para atualização dinâmica de tema
+-- Registry para tema dinâmico
 local ThemeRegistry = {
-    Objects = {}, -- {obj, {prop = "themeKey", ...}}
+    Objects = {},
 }
 
--- Registra objeto para atualização de tema
 local function RegisterForThemeUpdates(obj, propertyMap)
     table.insert(ThemeRegistry.Objects, {
         Object = obj,
         Properties = propertyMap
     })
     
-    -- Aplicar tema inicial
     for prop, themeKey in pairs(propertyMap) do
         if GGMenu.Theme[themeKey] then
             obj[prop] = GGMenu.Theme[themeKey]
@@ -87,7 +83,6 @@ local function RegisterForThemeUpdates(obj, propertyMap)
     end
 end
 
--- Atualiza tema em TODOS elementos registrados
 function GGMenu.RefreshTheme()
     for _, entry in ipairs(ThemeRegistry.Objects) do
         if entry.Object and not entry.Object:IsDescendantOf(nil) then
@@ -101,15 +96,26 @@ function GGMenu.RefreshTheme()
 end
 
 -- ======================================
--- SISTEMA DE CONFIGURAÇÕES
+-- SISTEMA DE CONFIGURAÇÕES SEGURO
 -- ======================================
 local SettingsSystem = {
     Configs = {},
-    AutoSave = true
+    AutoSave = true,
+    IsLoading = false
 }
 
 function GGMenu.CreateConfig(name, defaultConfig)
     local config = table.clone(defaultConfig or {})
+    
+    -- Mesclar com configurações existentes
+    if SettingsSystem.Configs[name] then
+        for k, v in pairs(SettingsSystem.Configs[name]) do
+            if config[k] == nil then
+                config[k] = v
+            end
+        end
+    end
+    
     SettingsSystem.Configs[name] = config
     
     local configObj = {
@@ -122,7 +128,7 @@ function GGMenu.CreateConfig(name, defaultConfig)
         
         Set = function(self, key, value)
             self.Data[key] = value
-            if SettingsSystem.AutoSave then
+            if SettingsSystem.AutoSave and not SettingsSystem.IsLoading then
                 GGMenu.SaveConfigs()
             end
         end,
@@ -154,21 +160,50 @@ function GGMenu.SaveConfigs()
 end
 
 function GGMenu.LoadConfigs()
+    local backup = table.clone(SettingsSystem.Configs)
+    SettingsSystem.IsLoading = true
+    
     if readfile and isfile and isfile("ggmenu_configs.json") then
         pcall(function()
             local json = readfile("ggmenu_configs.json")
-            local data = game:GetService("HttpService"):JSONDecode(json)
-            SettingsSystem.Configs = data
+            local success, data = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(json)
+            end)
+            
+            if success and type(data) == "table" then
+                -- Mesclar com backup (não sobrescrever totalmente)
+                for configName, configData in pairs(data) do
+                    if backup[configName] then
+                        for k, v in pairs(configData) do
+                            backup[configName][k] = v
+                        end
+                    else
+                        backup[configName] = configData
+                    end
+                end
+                SettingsSystem.Configs = backup
+            end
         end)
-    elseif _G.GGMenu_Configs then
-        SettingsSystem.Configs = _G.GGMenu_Configs
+    elseif _G.GGMenu_Configs and type(_G.GGMenu_Configs) == "table" then
+        for configName, configData in pairs(_G.GGMenu_Configs) do
+            if backup[configName] then
+                for k, v in pairs(configData) do
+                    backup[configName][k] = v
+                end
+            else
+                backup[configName] = configData
+            end
+        end
+        SettingsSystem.Configs = backup
     end
+    
+    SettingsSystem.IsLoading = false
 end
 
 GGMenu.LoadConfigs()
 
 -- ======================================
--- UTILITÁRIOS CENTRALIZADOS
+-- UTILITÁRIOS
 -- ======================================
 local function Create(class, props, children)
     local obj = Instance.new(class)
@@ -200,7 +235,6 @@ local function Tween(obj, props, duration)
     return tw
 end
 
--- Detector de executor com cache
 local cachedExecutor = nil
 local function GetExecutor()
     if cachedExecutor then return cachedExecutor end
@@ -232,15 +266,15 @@ local function GetExecutor()
 end
 
 -- ======================================
--- SISTEMA DE INPUT CENTRALIZADO (MELHORIA 2)
+-- INPUT MANAGER CENTRALIZADO
 -- ======================================
 local InputManager = {
-    Sliders = {}, -- {sliderObject, trackFrame}
-    ActiveSlider = nil
+    Sliders = {},
+    ActiveSlider = nil,
+    Connections = {}
 }
 
--- Centraliza eventos de input para todos os sliders
-UserInputService.InputChanged:Connect(function(input)
+InputManager.Connections.InputChanged = UserInputService.InputChanged:Connect(function(input)
     if InputManager.ActiveSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
         local slider = InputManager.ActiveSlider
         local track = InputManager.Sliders[slider]
@@ -255,14 +289,14 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
+InputManager.Connections.InputEnded = UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
         InputManager.ActiveSlider = nil
     end
 end)
 
 -- ======================================
--- COMPONENTES BASE COM THEME REGISTRY
+-- COMPONENTES BASE COM CALLBACKS
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable, callback)
     local container = Create("Frame", {
@@ -298,7 +332,6 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
     })
     
     RegisterForThemeUpdates(toggleFrame, {
-        BackgroundColor3 = defaultValue and "Accent" or "BgCard",
         UIStroke = "Border"
     })
     
@@ -318,8 +351,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
         Container = container,
         ConfigKey = configKey,
         ConfigTable = configTable,
-        Frame = toggleFrame,
-        Circle = toggleCircle,
+        Callback = callback,
         
         Set = function(self, value)
             self.Value = value
@@ -333,8 +365,8 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
                 configTable:Set(configKey, value)
             end
             
-            if callback then
-                callback(value)
+            if self.Callback then
+                self.Callback(value)
             end
         end,
         
@@ -363,7 +395,7 @@ function GGMenu.CreateToggle(parent, text, defaultValue, configKey, configTable,
     return toggle
 end
 
-function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, configTable)
+function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, configTable, callback)
     local isFloat = (defaultValue or min) % 1 ~= 0
     local container = Create("Frame", {
         Parent = parent,
@@ -447,6 +479,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         IsFloat = isFloat,
         ConfigKey = configKey,
         ConfigTable = configTable,
+        Callback = callback,
         Track = sliderTrack,
         Fill = sliderFill,
         Button = sliderButton,
@@ -464,6 +497,10 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
             if configKey and configTable then
                 configTable:Set(configKey, value)
             end
+            
+            if self.Callback then
+                self.Callback(value)
+            end
         end,
         
         UpdateTheme = function(self)
@@ -473,7 +510,6 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
         end
     }
     
-    -- Registrar slider no manager centralizado
     InputManager.Sliders[slider] = sliderTrack
     
     sliderTrack.InputBegan:Connect(function(input)
@@ -490,7 +526,7 @@ function GGMenu.CreateSlider(parent, text, min, max, defaultValue, configKey, co
     return slider
 end
 
-function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, configTable)
+function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, configTable, callback)
     local container = Create("Frame", {
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 40),
@@ -542,25 +578,23 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
     
     local dropdownOpen = false
     local dropdownFrame = nil
+    local clickConnection = nil
     
     local function closeDropdown()
         if dropdownFrame then
             dropdownFrame:Destroy()
             dropdownFrame = nil
         end
+        if clickConnection then
+            clickConnection:Disconnect()
+            clickConnection = nil
+        end
         dropdownOpen = false
     end
-    
-    -- SISTEMA DE CLIQUE FORA OTIMIZADO (MELHORIA 4)
-    local clickConnection = nil
     
     local function toggleDropdown()
         if dropdownOpen then
             closeDropdown()
-            if clickConnection then
-                clickConnection:Disconnect()
-                clickConnection = nil
-            end
         else
             dropdownOpen = true
             dropdownFrame = Create("Frame", {
@@ -615,14 +649,12 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                         configTable:Set(configKey, option)
                     end
                     
-                    if clickConnection then
-                        clickConnection:Disconnect()
-                        clickConnection = nil
+                    if callback then
+                        callback(option)
                     end
                 end)
             end
             
-            -- Evento de clique fora (apenas quando dropdown está aberto)
             clickConnection = UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 and dropdownFrame then
                     local mousePos = UserInputService:GetMouseLocation()
@@ -632,8 +664,6 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
                     if not (mousePos.X >= framePos.X and mousePos.X <= framePos.X + frameSize.X and
                            mousePos.Y >= framePos.Y and mousePos.Y <= framePos.Y + frameSize.Y) then
                         closeDropdown()
-                        clickConnection:Disconnect()
-                        clickConnection = nil
                     end
                 end
             end)
@@ -654,14 +684,15 @@ function GGMenu.CreateDropdown(parent, text, options, defaultValue, configKey, c
         UpdateTheme = function(self)
             dropdownButton.BackgroundColor3 = GGMenu.Theme.BgCard
             dropdownButton.TextColor3 = GGMenu.Theme.TextPrimary
-        end
+        end,
+        Destroy = closeDropdown
     }
     
     return dropdown
 end
 
 -- ======================================
--- FPS BAR OTIMIZADA (MELHORIA 3)
+-- FPS BAR
 -- ======================================
 function GGMenu.CreateFPSBar()
     local screenGui = Create("ScreenGui", {
@@ -715,7 +746,6 @@ function GGMenu.CreateFPSBar()
         Create("UICorner", {CornerRadius = UDim.new(1, 0)})
     })
     
-    -- Sistema de arrastar
     local dragging = false
     local dragStart, startPos
     
@@ -743,18 +773,16 @@ function GGMenu.CreateFPSBar()
         end
     end)
     
-    -- Sistema de FPS e Ping otimizado
     local last = tick()
     local fps = 60
     local fpsSamples = {}
     local executor = GetExecutor()
     
-    RunService.RenderStepped:Connect(function()
+    local fpsConnection = RunService.RenderStepped:Connect(function()
         local now = tick()
         local currentFPS = math.floor(1 / math.max(now - last, 0.0001))
         last = now
         
-        -- Média móvel para FPS estável
         table.insert(fpsSamples, currentFPS)
         if #fpsSamples > 30 then table.remove(fpsSamples, 1) end
         
@@ -762,7 +790,6 @@ function GGMenu.CreateFPSBar()
         for _, v in ipairs(fpsSamples) do total = total + v end
         fps = math.floor(total / #fpsSamples)
         
-        -- Atualizar cor do status
         if fps >= 50 then
             statusDot.BackgroundColor3 = GGMenu.Theme.Success
         elseif fps >= 30 then
@@ -771,25 +798,13 @@ function GGMenu.CreateFPSBar()
             statusDot.BackgroundColor3 = GGMenu.Theme.Danger
         end
         
-        -- Sistema de ping com fallback (MELHORIA 3)
         local ping = 0
         pcall(function()
-            -- Método 1: Stats do Roblox
             if Stats.Network and Stats.Network.ServerStatsItem then
                 local pingItem = Stats.Network.ServerStatsItem["Data Ping"]
                 if pingItem then
                     ping = math.floor(pingItem:GetValue())
                 end
-            end
-            
-            -- Método 2: NetworkClient (fallback)
-            if ping == 0 and game:GetService("NetworkClient") then
-                ping = math.floor(game:GetService("NetworkClient"):GetServerResponseTime() * 1000)
-            end
-            
-            -- Método 3: Player method (último recurso)
-            if ping == 0 and Players.LocalPlayer:GetNetworkPing then
-                ping = math.floor(Players.LocalPlayer:GetNetworkPing() * 1000)
             end
         end)
         
@@ -805,12 +820,16 @@ function GGMenu.CreateFPSBar()
         Bar = bar,
         TextLabel = textLabel,
         StatusDot = statusDot,
+        FPSConnection = fpsConnection,
         
         SetVisible = function(self, visible) 
             screenGui.Enabled = visible 
         end,
         
         Destroy = function(self) 
+            if self.FPSConnection then
+                self.FPSConnection:Disconnect()
+            end
             screenGui:Destroy() 
         end,
         
@@ -823,7 +842,7 @@ function GGMenu.CreateFPSBar()
 end
 
 -- ======================================
--- JANELA COM TABS E THEME SUPPORT
+-- JANELA COM TABS
 -- ======================================
 function GGMenu.CreateWindow(title)
     local screenGui = Create("ScreenGui", {
@@ -851,7 +870,6 @@ function GGMenu.CreateWindow(title)
         UIStroke = "Accent"
     })
     
-    -- Header
     local header = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, 0, 0, 60),
@@ -877,7 +895,6 @@ function GGMenu.CreateWindow(title)
     
     RegisterForThemeUpdates(titleLabel, {TextColor3 = "TextPrimary"})
     
-    -- Botão de fechar
     local closeButton = Create("TextButton", {
         Parent = header,
         Size = UDim2.new(0, 32, 0, 32),
@@ -900,7 +917,6 @@ function GGMenu.CreateWindow(title)
         UIStroke = "Border"
     })
     
-    -- Hover effects
     closeButton.MouseEnter:Connect(function()
         Tween(closeButton, {
             BackgroundColor3 = GGMenu.Theme.Danger,
@@ -915,7 +931,6 @@ function GGMenu.CreateWindow(title)
         })
     end)
     
-    -- Sistema de drag
     local dragging = false
     local dragStart, startPos
     
@@ -943,7 +958,6 @@ function GGMenu.CreateWindow(title)
         end
     end)
     
-    -- Área de tabs
     local tabsContainer = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, 0, 0, 40),
@@ -961,7 +975,6 @@ function GGMenu.CreateWindow(title)
         BorderSizePixel = 0
     })
     
-    -- Área de conteúdo
     local contentArea = Create("Frame", {
         Parent = mainFrame,
         Size = UDim2.new(1, -30, 1, -110),
@@ -969,21 +982,20 @@ function GGMenu.CreateWindow(title)
         BackgroundTransparency = 1
     })
     
-    -- Variáveis da janela
     local tabs = {}
     local currentTab = nil
+    local windowVisible = false
     
-    -- Interface da janela
     local window = {
         Gui = screenGui,
         Frame = mainFrame,
         Tabs = tabs,
         Visible = false,
+        Components = {},
         
         AddTab = function(self, tabName)
             local tabId = #tabs + 1
             
-            -- Criar botão da tab
             local tabButton = Create("TextButton", {
                 Parent = tabsList,
                 Size = UDim2.new(0, 80, 1, 0),
@@ -1005,10 +1017,8 @@ function GGMenu.CreateWindow(title)
                 UIStroke = "Border"
             })
             
-            -- Atualizar tamanho do canvas
             tabsList.CanvasSize = UDim2.new(0, tabId * 85, 0, 0)
             
-            -- Criar conteúdo da tab
             local tabContent = Create("ScrollingFrame", {
                 Parent = contentArea,
                 Size = UDim2.new(1, 0, 1, 0),
@@ -1038,7 +1048,6 @@ function GGMenu.CreateWindow(title)
                 tabContent.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
             end)
             
-            -- Função para mostrar/ocultar tab
             local function showTab()
                 for _, tabData in pairs(tabs) do
                     tabData.Content.Visible = false
@@ -1057,7 +1066,6 @@ function GGMenu.CreateWindow(title)
                 currentTab = tabId
             end
             
-            -- Eventos do botão
             tabButton.MouseButton1Click:Connect(showTab)
             
             tabButton.MouseEnter:Connect(function()
@@ -1072,7 +1080,6 @@ function GGMenu.CreateWindow(title)
                 end
             end)
             
-            -- Armazenar tab
             local tabData = {
                 Name = tabName,
                 Button = tabButton,
@@ -1089,12 +1096,10 @@ function GGMenu.CreateWindow(title)
             tabs[tabId] = tabData
             self.Tabs[tabName] = tabData
             
-            -- Se for a primeira tab, mostrar
             if tabId == 1 then
                 showTab()
             end
             
-            -- Interface da tab
             local tabInterface = {}
             
             function tabInterface:AddSection(title)
@@ -1121,15 +1126,21 @@ function GGMenu.CreateWindow(title)
                 local sectionInterface = {}
                 
                 function sectionInterface:AddToggle(text, default, configKey, configTable, callback)
-                    return GGMenu.CreateToggle(componentsContainer, text, default, configKey, configTable, callback)
+                    local toggle = GGMenu.CreateToggle(componentsContainer, text, default, configKey, configTable, callback)
+                    table.insert(self.Components or {}, toggle)
+                    return toggle
                 end
                 
-                function sectionInterface:AddSlider(text, min, max, default, configKey, configTable)
-                    return GGMenu.CreateSlider(componentsContainer, text, min, max, default, configKey, configTable)
+                function sectionInterface:AddSlider(text, min, max, default, configKey, configTable, callback)
+                    local slider = GGMenu.CreateSlider(componentsContainer, text, min, max, default, configKey, configTable, callback)
+                    table.insert(self.Components or {}, slider)
+                    return slider
                 end
                 
-                function sectionInterface:AddDropdown(text, options, default, configKey, configTable)
-                    return GGMenu.CreateDropdown(componentsContainer, text, options, default, configKey, configTable)
+                function sectionInterface:AddDropdown(text, options, default, configKey, configTable, callback)
+                    local dropdown = GGMenu.CreateDropdown(componentsContainer, text, options, default, configKey, configTable, callback)
+                    table.insert(self.Components or {}, dropdown)
+                    return dropdown
                 end
                 
                 function sectionInterface:AddLabel(text)
@@ -1194,6 +1205,10 @@ function GGMenu.CreateWindow(title)
                     return button
                 end
                 
+                self.Components = self.Components or {}
+                sectionInterface.Components = {}
+                setmetatable(sectionInterface.Components, {__mode = "v"})
+                
                 return sectionInterface
             end
             
@@ -1224,10 +1239,13 @@ function GGMenu.CreateWindow(title)
                     tabData:UpdateTheme()
                 end
             end
+        end,
+        
+        Destroy = function(self)
+            screenGui:Destroy()
         end
     }
     
-    -- Fechar janela com botão X
     closeButton.MouseButton1Click:Connect(function()
         window:SetVisible(false)
     end)
@@ -1236,7 +1254,7 @@ function GGMenu.CreateWindow(title)
 end
 
 -- ======================================
--- SISTEMA DE NOTIFICAÇÕES OTIMIZADO
+-- NOTIFICAÇÕES
 -- ======================================
 local NotifySingleton = nil
 
@@ -1299,11 +1317,9 @@ function GGMenu.Notify(title, text, duration)
     
     RegisterForThemeUpdates(textLabel, {TextColor3 = "TextPrimary"})
     
-    -- Animação de entrada
     frame.Position = UDim2.new(1, 400, 1, -90)
     Tween(frame, {Position = UDim2.new(1, -310, 1, -90)})
     
-    -- Auto-destruir
     task.delay(duration, function()
         Tween(frame, {
             Position = UDim2.new(1, 400, 1, -90)
@@ -1315,7 +1331,7 @@ function GGMenu.Notify(title, text, duration)
 end
 
 -- ======================================
--- INICIALIZAÇÃO PRINCIPAL
+-- INICIALIZAÇÃO COMPLETA
 -- ======================================
 local CurrentUI = nil
 local UIKey = Enum.KeyCode.Insert
@@ -1327,27 +1343,21 @@ function GGMenu:Init()
     
     local components = {}
     
-    -- FPS Bar
     components.FPSBar = self.CreateFPSBar()
-    
-    -- Janela principal
     components.MainWindow = self.CreateWindow("GGMenu v6.3")
     
-    -- Sistema de tecla Insert
-    UserInputService.InputBegan:Connect(function(input)
+    local keyConnection = UserInputService.InputBegan:Connect(function(input)
         if input.KeyCode == UIKey then
             components.MainWindow:Toggle()
         end
     end)
     
-    -- Tab de configurações
     local configTab = components.MainWindow:AddTab("Configurações")
-    
-    -- Seção Interface
     local interfaceSection = configTab:AddSection("Interface")
     
     local uiConfig = self.CreateConfig("UI_Settings", {
         FPSBarVisible = true,
+        UIKey = "Insert",
         UIEnabled = true
     })
     
@@ -1359,11 +1369,12 @@ function GGMenu:Init()
     
     interfaceSection:AddToggle("Tecla Insert Ativa", uiConfig:Get("UIEnabled"), "UIEnabled", uiConfig,
         function(value)
-            -- Ativa/desativa o listener da tecla
+            if not value then
+                keyConnection:Disconnect()
+            end
         end
     )
     
-    -- Seção Tema (COM ATUALIZAÇÃO DINÂMICA)
     local themeSection = configTab:AddSection("Tema")
     
     local themeConfig = self.CreateConfig("UI_Theme", {
@@ -1371,13 +1382,10 @@ function GGMenu:Init()
         Background = self.Theme.BgCard
     })
     
-    themeSection:AddLabel("⚠️ Atualização dinâmica ativa!")
-    
     local themes = {
         {name = "Vermelho", accent = Color3.fromRGB(232, 84, 84), bg = Color3.fromRGB(18, 18, 22)},
         {name = "Azul", accent = Color3.fromRGB(0, 170, 255), bg = Color3.fromRGB(10, 15, 30)},
-        {name = "Verde", accent = Color3.fromRGB(72, 199, 142), bg = Color3.fromRGB(15, 25, 20)},
-        {name = "Roxo", accent = Color3.fromRGB(155, 89, 182), bg = Color3.fromRGB(25, 20, 35)}
+        {name = "Verde", accent = Color3.fromRGB(72, 199, 142), bg = Color3.fromRGB(15, 25, 20)}
     }
     
     for _, theme in ipairs(themes) do
@@ -1387,56 +1395,35 @@ function GGMenu:Init()
             themeConfig:Set("Accent", theme.accent)
             themeConfig:Set("Background", theme.bg)
             
-            -- ATUALIZA TODOS ELEMENTOS EXISTENTES
             self.RefreshTheme()
-            self.Notify("Tema " .. theme.name, "Atualizado em todos elementos!", 3)
+            self.Notify("Tema " .. theme.name, "Atualizado!", 3)
         end)
     end
     
-    -- Tab informações
     local infoTab = components.MainWindow:AddTab("Informações")
     local systemSection = infoTab:AddSection("Sistema")
     
     systemSection:AddLabel("Executor: " .. GetExecutor())
-    systemSection:AddLabel("Versão: 6.3 (PC Only)")
-    systemSection:AddLabel("Data: " .. os.date("%d/%m/%Y"))
-    systemSection:AddLabel("")
-    systemSection:AddLabel("✨ NOVIDADES v6.3:")
-    systemSection:AddLabel("- Temas dinâmicos")
-    systemSection:AddLabel("- Input centralizado")
-    systemSection:AddLabel("- Ping com fallback")
-    systemSection:AddLabel("- Dropdown otimizado")
+    systemSection:AddLabel("Versão: 6.3")
+    systemSection:AddLabel("Tecla: Insert")
     
-    -- Tab utilitários
-    local utilsTab = components.MainWindow:AddTab("Utilitários")
-    local gameSection = utilsTab:AddSection("Jogo")
-    
-    gameSection:AddButton("Reiniciar Personagem", function()
-        local char = Players.LocalPlayer.Character
-        if char then
-            char:BreakJoints()
-            self.Notify("Personagem", "Reiniciado com sucesso!", 2)
-        end
-    end)
-    
-    gameSection:AddButton("Copiar Localização", function()
-        local char = Players.LocalPlayer.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            local pos = char.HumanoidRootPart.Position
-            if setclipboard then
-                setclipboard(string.format("Vector3.new(%.2f, %.2f, %.2f)", pos.X, pos.Y, pos.Z))
-                self.Notify("Copiado", "Localização copiada!", 2)
-            end
-        end
-    end)
-    
-    -- Instância UI
     local uiInstance = {
         FPSBar = components.FPSBar,
         Window = components.MainWindow,
+        KeyConnection = keyConnection,
         
         SetKey = function(keyCode)
+            if keyConnection then
+                keyConnection:Disconnect()
+            end
+            
             UIKey = keyCode
+            keyConnection = UserInputService.InputBegan:Connect(function(input)
+                if input.KeyCode == UIKey then
+                    components.MainWindow:Toggle()
+                end
+            end)
+            
             return uiInstance
         end,
         
@@ -1453,12 +1440,26 @@ function GGMenu:Init()
         end,
         
         Destroy = function()
+            if keyConnection then
+                keyConnection:Disconnect()
+            end
+            
+            if InputManager.Connections.InputChanged then
+                InputManager.Connections.InputChanged:Disconnect()
+            end
+            
+            if InputManager.Connections.InputEnded then
+                InputManager.Connections.InputEnded:Disconnect()
+            end
+            
             components.FPSBar:Destroy()
-            components.MainWindow.Gui:Destroy()
+            components.MainWindow:Destroy()
+            
             if NotifySingleton then
                 NotifySingleton:Destroy()
                 NotifySingleton = nil
             end
+            
             CurrentUI = nil
         end
     }
@@ -1485,45 +1486,6 @@ function GGMenu.new(title)
     self.GetFPSBar = function() return ui.FPSBar end
     
     return self
-end
-
--- ======================================
--- EXEMPLO COMPLETO
--- ======================================
-function GGMenu.CreateExample()
-    local ui = GGMenu:Init()
-    local exampleTab = ui.Window:AddTab("Exemplo")
-    local controls = exampleTab:AddSection("Controles")
-    
-    local config = GGMenu.CreateConfig("Example_Config", {
-        toggle1 = true,
-        sliderValue = 50,
-        dropdownOption = "Opção 1"
-    })
-    
-    controls:AddToggle("Toggle com Callback", config:Get("toggle1"), "toggle1", config,
-        function(value)
-            GGMenu.Notify("Toggle", "Estado: " .. (value and "ON" or "OFF"), 2)
-        end
-    )
-    
-    controls:AddSlider("Slider", 0, 100, config:Get("sliderValue"), "sliderValue", config)
-    
-    local options = {"Opção 1", "Opção 2", "Opção 3"}
-    controls:AddDropdown("Dropdown", options, config:Get("dropdownOption"), "dropdownOption", config)
-    
-    controls:AddSpacer(10)
-    
-    controls:AddButton("Testar Tema", function()
-        GGMenu.Theme.Accent = Color3.fromRGB(math.random(50, 255), math.random(50, 255), math.random(50, 255))
-        GGMenu.RefreshTheme()
-        GGMenu.Notify("Tema Aleatório", "Aplicado!", 2)
-    end)
-    
-    controls:AddButton("Fechar UI", ui.Hide)
-    controls:AddButton("Abrir UI", ui.Show)
-    
-    return ui
 end
 
 -- ======================================
