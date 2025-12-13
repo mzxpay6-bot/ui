@@ -979,6 +979,66 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 
+-- ======================================
+-- Painel de Status Integrado (GGMenu v5.2)
+-- ======================================
+function GGMenu:CreateStatusPanel()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GGMenu_StatusPanel"
+    screenGui.ResetOnSpawn = false
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = game:GetService("CoreGui")
+
+    local panel = Instance.new("Frame")
+    panel.Size = UDim2.new(0, 200, 0, 150)
+    panel.Position = UDim2.new(1, -210, 0, 50)
+    panel.BackgroundColor3 = self.Theme.BgCard
+    panel.BackgroundTransparency = 0.1
+    panel.BorderSizePixel = 1
+    panel.Parent = screenGui
+
+    local uiCorner = Instance.new("UICorner", panel)
+    uiCorner.CornerRadius = UDim.new(0, 6)
+
+    local uiList = Instance.new("UIListLayout", panel)
+    uiList.SortOrder = Enum.SortOrder.LayoutOrder
+    uiList.Padding = UDim.new(0, 2)
+
+    local statusLabels = {}
+
+    -- Adiciona nova entrada no painel
+    local function AddStatus(text, initialValue)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -10, 0, 20)
+        lbl.BackgroundTransparency = 1
+        lbl.TextSize = 14
+        lbl.Font = self.Fonts.Header
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.TextColor3 = initialValue and self.Theme.Accent or self.Theme.TextSecondary
+        lbl.Text = text .. ": " .. (initialValue and "ON" or "OFF")
+        lbl.LayoutOrder = #statusLabels + 1
+        lbl.Parent = panel
+
+        statusLabels[text] = lbl
+        return lbl
+    end
+
+    -- Atualiza o estado de uma entrada
+    local function UpdateStatus(text, value)
+        if statusLabels[text] then
+            statusLabels[text].Text = text .. ": " .. (value and "ON" or "OFF")
+            statusLabels[text].TextColor3 = value and self.Theme.Accent or self.Theme.TextSecondary
+        end
+    end
+
+    return {
+        Add = AddStatus,
+        Update = UpdateStatus,
+        Panel = panel
+    }
+end
+
+
 -- Versão minimalista para usar apenas componentes
 function GGMenu:CreateLibrary()
     return {
