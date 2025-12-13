@@ -1039,49 +1039,6 @@ function GGMenu:CreateStatusPanel()
 end
 
 
--- ======================================
--- Partículas de Natal para GGMenu
--- ======================================
--- Função para adicionar partículas natalinas à GGMenu UI Library
-function GGMenu:AddGlobalParticles()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "GGMenu_GlobalParticles"
-    screenGui.ResetOnSpawn = false
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.Parent = game:GetService("CoreGui")
-
-    -- Frame invisível cobrindo toda a tela
-    local particleFrame = Instance.new("Frame")
-    particleFrame.Size = UDim2.new(1, 0, 1, 0)
-    particleFrame.Position = UDim2.new(0, 0, 0, 0)
-    particleFrame.BackgroundTransparency = 1
-    particleFrame.Parent = screenGui
-    particleFrame.ZIndex = -1 -- garante que as partículas fiquem atrás de todos os elementos da UI
-
-    -- Criar ParticleEmitter
-    local emitter = Instance.new("ParticleEmitter")
-    emitter.Parent = particleFrame
-    emitter.Texture = "rbxassetid://2582549326" -- floco de neve ou qualquer partícula festiva
-    emitter.Lifetime = NumberRange.new(3, 6)
-    emitter.Rate = 8
-    emitter.Speed = NumberRange.new(5, 15)
-    emitter.SpreadAngle = Vector2.new(360, 360)
-    emitter.RotSpeed = NumberRange.new(-50, 50)
-    emitter.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.5)})
-    emitter.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1)})
-    emitter.StartColor = ColorSequence.new(Color3.fromRGB(255, 255, 255))
-    emitter.EndColor = ColorSequence.new(Color3.fromRGB(200, 200, 255))
-    emitter.Enabled = true
-
-    return emitter
-end
-
--- Exemplo de uso dentro da Library:
-local GGMenu = require(path_to_ggmenu) -- seu arquivo da library
-local ui = GGMenu:Init(true)
-ui.GlobalParticles = GGMenu:AddGlobalParticles()
-
-
 
 -- Versão minimalista para usar apenas componentes
 function GGMenu:CreateLibrary()
