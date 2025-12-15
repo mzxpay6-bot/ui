@@ -1,5 +1,5 @@
--- Professional UI Library
--- Inspirado no design premium do Xan UI
+-- UI Library Universal
+-- Design premium e moderno para qualquer tipo de projeto
 local UILibrary = {}
 
 -- Serviços
@@ -14,7 +14,7 @@ UILibrary.Config = {
     PrimaryColor = Color3.fromRGB(18, 18, 22),      -- Fundo escuro
     SecondaryColor = Color3.fromRGB(28, 28, 34),    -- Cards
     TertiaryColor = Color3.fromRGB(38, 38, 45),     -- Hover
-    AccentColor = Color3.fromRGB(232, 84, 84),      -- Vermelho moderno
+    AccentColor = Color3.fromRGB(0, 170, 255),      -- Azul moderno
     TextPrimary = Color3.fromRGB(245, 245, 250),
     TextSecondary = Color3.fromRGB(160, 160, 175),
     TextDim = Color3.fromRGB(90, 90, 105),
@@ -23,35 +23,48 @@ UILibrary.Config = {
     FontMedium = Enum.Font.GothamMedium,
     CornerRadius = 10,
     AnimationSpeed = 0.25,
-    BlurEnabled = false,
     GlowEnabled = true,
     Version = "v2.1",
     Keybinds = {},
     Theme = "Dark"
 }
 
--- Cores para diferentes temas
+-- Temas disponíveis
 UILibrary.Themes = {
     Dark = {
         Primary = Color3.fromRGB(18, 18, 22),
         Secondary = Color3.fromRGB(28, 28, 34),
-        Accent = Color3.fromRGB(232, 84, 84),
+        Accent = Color3.fromRGB(0, 170, 255),
         TextPrimary = Color3.fromRGB(245, 245, 250),
         TextSecondary = Color3.fromRGB(160, 160, 175)
     },
     Light = {
         Primary = Color3.fromRGB(245, 245, 250),
         Secondary = Color3.fromRGB(235, 235, 240),
-        Accent = Color3.fromRGB(232, 84, 84),
+        Accent = Color3.fromRGB(0, 170, 255),
         TextPrimary = Color3.fromRGB(30, 30, 35),
         TextSecondary = Color3.fromRGB(100, 100, 115)
     },
-    Blue = {
-        Primary = Color3.fromRGB(15, 20, 30),
-        Secondary = Color3.fromRGB(25, 35, 50),
-        Accent = Color3.fromRGB(0, 170, 255),
+    Purple = {
+        Primary = Color3.fromRGB(25, 20, 35),
+        Secondary = Color3.fromRGB(40, 30, 50),
+        Accent = Color3.fromRGB(170, 100, 255),
         TextPrimary = Color3.fromRGB(245, 245, 250),
-        TextSecondary = Color3.fromRGB(180, 200, 220)
+        TextSecondary = Color3.fromRGB(180, 170, 200)
+    },
+    Green = {
+        Primary = Color3.fromRGB(20, 25, 20),
+        Secondary = Color3.fromRGB(30, 40, 30),
+        Accent = Color3.fromRGB(0, 220, 130),
+        TextPrimary = Color3.fromRGB(245, 245, 250),
+        TextSecondary = Color3.fromRGB(170, 200, 170)
+    },
+    Sunset = {
+        Primary = Color3.fromRGB(30, 25, 35),
+        Secondary = Color3.fromRGB(45, 35, 50),
+        Accent = Color3.fromRGB(255, 100, 150),
+        TextPrimary = Color3.fromRGB(245, 245, 250),
+        TextSecondary = Color3.fromRGB(200, 170, 180)
     }
 }
 
@@ -106,44 +119,13 @@ local function ApplyGlow(frame, color, intensity)
     return glow
 end
 
-local function CreateRoundedFrame(parent, size, position, backgroundColor, cornerRadius)
-    local frame = Create("Frame", {
-        Name = "RoundedFrame",
-        Size = size,
-        Position = position,
-        BackgroundColor3 = backgroundColor or UILibrary.Config.SecondaryColor,
-        BackgroundTransparency = 0,
-        Parent = parent
-    }, {
-        Create("UICorner", { CornerRadius = UDim.new(0, cornerRadius or UILibrary.Config.CornerRadius) })
-    })
-    return frame
-end
-
--- Cria tela principal premium
-function UILibrary:CreateScreen(title, icon)
+-- Cria janela principal
+function UILibrary:CreateWindow(title, subtitle)
     local ScreenGui = Create("ScreenGui", {
         Name = "PremiumUI",
         ResetOnSpawn = false,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder = 999
-    })
-    
-    -- Efeito de blur
-    if self.Config.BlurEnabled then
-        local blur = Instance.new("BlurEffect")
-        blur.Size = 8
-        blur.Parent = game.Lighting
-    end
-    
-    -- Overlay de fundo
-    local Overlay = Create("Frame", {
-        Name = "Overlay",
-        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-        BackgroundTransparency = 0.8,
-        Size = UDim2.new(1, 0, 1, 0),
-        ZIndex = 1,
-        Parent = ScreenGui
     })
     
     -- Container principal
@@ -172,24 +154,23 @@ function UILibrary:CreateScreen(title, icon)
     local Header = Create("Frame", {
         Name = "Header",
         BackgroundColor3 = self.Config.SecondaryColor,
-        Size = UDim2.new(1, 0, 0, 50),
+        Size = UDim2.new(1, 0, 0, 60),
         BackgroundTransparency = 0,
         ZIndex = 11,
         Parent = Container
     }, {
         Create("UICorner", {
             CornerRadius = UDim.new(0, 16),
-            CornerMask = BitMask.new(15) -- Top corners only
+            CornerMask = BitMask.new(15)
         })
     })
     
     -- Logo e título
-    local LogoContainer = Create("Frame", {
-        Name = "LogoContainer",
+    local TitleContainer = Create("Frame", {
+        Name = "TitleContainer",
         BackgroundTransparency = 1,
-        Size = UDim2.new(0, 120, 0, 40),
-        Position = UDim2.new(0, 15, 0.5, -20),
-        AnchorPoint = Vector2.new(0, 0.5),
+        Size = UDim2.new(0.7, 0, 1, 0),
+        Position = UDim2.new(0, 15, 0, 0),
         ZIndex = 12,
         Parent = Header
     })
@@ -197,40 +178,44 @@ function UILibrary:CreateScreen(title, icon)
     local TitleLabel = Create("TextLabel", {
         Name = "Title",
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, 0, 0.6, 0),
         Font = self.Config.FontBold,
         Text = title or "Premium UI",
         TextColor3 = self.Config.TextPrimary,
-        TextSize = 18,
+        TextSize = 20,
         TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 13,
-        Parent = LogoContainer
+        Parent = TitleContainer
     })
     
-    local SubtitleLabel = Create("TextLabel", {
-        Name = "Subtitle",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 1, -12),
-        Font = self.Config.FontMedium,
-        Text = "by " .. (LocalPlayer.Name or "User"),
-        TextColor3 = self.Config.TextDim,
-        TextSize = 11,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 13,
-        Parent = LogoContainer
-    })
+    if subtitle then
+        local SubtitleLabel = Create("TextLabel", {
+            Name = "Subtitle",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0.4, 0),
+            Position = UDim2.new(0, 0, 0.6, 0),
+            Font = self.Config.FontMedium,
+            Text = subtitle,
+            TextColor3 = self.Config.TextDim,
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 13,
+            Parent = TitleContainer
+        })
+    end
     
     -- Botão de fechar
     local CloseButton = Create("TextButton", {
         Name = "CloseButton",
-        BackgroundTransparency = 1,
+        BackgroundColor3 = self.Config.AccentColor,
         Size = UDim2.new(0, 30, 0, 30),
         Position = UDim2.new(1, -40, 0.5, -15),
         AnchorPoint = Vector2.new(1, 0.5),
         Text = "",
         ZIndex = 12,
         Parent = Header
+    }, {
+        Create("UICorner", { CornerRadius = UDim.new(0, 8) })
     })
     
     local CloseIcon = Create("ImageLabel", {
@@ -239,18 +224,18 @@ function UILibrary:CreateScreen(title, icon)
         Size = UDim2.new(0, 16, 0, 16),
         Position = UDim2.new(0.5, -8, 0.5, -8),
         Image = "rbxassetid://7743878857",
-        ImageColor3 = self.Config.TextDim,
+        ImageColor3 = Color3.new(1, 1, 1),
         ZIndex = 13,
         Parent = CloseButton
     })
     
     -- Animações do botão de fechar
     CloseButton.MouseEnter:Connect(function()
-        Tween(CloseIcon, { ImageColor3 = self.Config.TextPrimary })
+        Tween(CloseButton, { BackgroundColor3 = Color3.fromRGB(50, 190, 255) })
     end)
     
     CloseButton.MouseLeave:Connect(function()
-        Tween(CloseIcon, { ImageColor3 = self.Config.TextDim })
+        Tween(CloseButton, { BackgroundColor3 = self.Config.AccentColor })
     end)
     
     CloseButton.MouseButton1Click:Connect(function()
@@ -260,19 +245,21 @@ function UILibrary:CreateScreen(title, icon)
     -- Separador
     local Separator = Create("Frame", {
         Name = "Separator",
-        BackgroundColor3 = Color3.fromRGB(40, 40, 48),
-        Size = UDim2.new(1, -20, 0, 1),
-        Position = UDim2.new(0, 10, 0, 50),
+        BackgroundColor3 = self.Config.AccentColor,
+        Size = UDim2.new(1, -30, 0, 2),
+        Position = UDim2.new(0, 15, 0, 60),
         ZIndex = 11,
         Parent = Container
+    }, {
+        Create("UICorner", { CornerRadius = UDim.new(1, 0) })
     })
     
     -- Container de conteúdo
     local ContentFrame = Create("Frame", {
         Name = "ContentFrame",
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, -60),
-        Position = UDim2.new(0, 0, 0, 60),
+        Size = UDim2.new(1, 0, 1, -70),
+        Position = UDim2.new(0, 0, 0, 70),
         ZIndex = 11,
         Parent = Container
     })
@@ -353,18 +340,18 @@ function UILibrary:CreateSection(parent, title, description)
         SectionDesc = Create("TextLabel", {
             Name = "Description",
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 16),
+            Size = UDim2.new(1, 0, 0, 20),
             Position = UDim2.new(0, 0, 0, 24),
             Font = self.Config.Font,
             Text = description,
             TextColor3 = self.Config.TextDim,
-            TextSize = 12,
+            TextSize = 13,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextWrapped = true,
             Parent = SectionContainer
         })
         
-        SectionContainer.Size = UDim2.new(1, -20, 0, 44)
+        SectionContainer.Size = UDim2.new(1, -20, 0, 48)
     else
         SectionContainer.Size = UDim2.new(1, -20, 0, 28)
     end
@@ -377,8 +364,9 @@ function UILibrary:CreateButton(parent, text, callback, options)
     options = options or {}
     local isAccent = options.Accent or false
     local icon = options.Icon
+    local size = options.Size or "medium"
     
-    local ButtonHeight = 42
+    local ButtonHeight = size == "large" and 50 or size == "small" and 36 or 42
     local Button = Create("TextButton", {
         Name = "Button_" .. text,
         BackgroundColor3 = isAccent and self.Config.AccentColor or self.Config.SecondaryColor,
@@ -390,7 +378,7 @@ function UILibrary:CreateButton(parent, text, callback, options)
     }, {
         Create("UICorner", { CornerRadius = UDim.new(0, 8) }),
         Create("UIStroke", {
-            Color = isAccent and Color3.fromRGB(200, 70, 70) or Color3.fromRGB(50, 50, 58),
+            Color = isAccent and Color3.fromRGB(30, 150, 225) or Color3.fromRGB(50, 50, 58),
             Thickness = 1
         })
     })
@@ -410,7 +398,7 @@ function UILibrary:CreateButton(parent, text, callback, options)
         Font = self.Config.FontBold,
         Text = text,
         TextColor3 = isAccent and Color3.new(1, 1, 1) or self.Config.TextPrimary,
-        TextSize = 14,
+        TextSize = size == "large" and 16 or size == "small" and 12 or 14,
         TextXAlignment = icon and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center,
         Parent = ButtonContent
     })
@@ -432,15 +420,15 @@ function UILibrary:CreateButton(parent, text, callback, options)
     
     -- Efeitos de hover
     Button.MouseEnter:Connect(function()
-        local targetColor = isAccent and Color3.fromRGB(245, 100, 100) or self.Config.TertiaryColor
+        local targetColor = isAccent and Color3.fromRGB(50, 190, 255) or self.Config.TertiaryColor
         Tween(Button, { BackgroundColor3 = targetColor })
-        Tween(Button.UIStroke, { Color = isAccent and Color3.fromRGB(220, 90, 90) or Color3.fromRGB(70, 70, 78) })
+        Tween(Button.UIStroke, { Color = isAccent and Color3.fromRGB(70, 190, 255) or Color3.fromRGB(70, 70, 78) })
     end)
     
     Button.MouseLeave:Connect(function()
         local originalColor = isAccent and self.Config.AccentColor or self.Config.SecondaryColor
         Tween(Button, { BackgroundColor3 = originalColor })
-        Tween(Button.UIStroke, { Color = isAccent and Color3.fromRGB(200, 70, 70) or Color3.fromRGB(50, 50, 58) })
+        Tween(Button.UIStroke, { Color = isAccent and Color3.fromRGB(30, 150, 225) or Color3.fromRGB(50, 50, 58) })
     end)
     
     Button.MouseButton1Click:Connect(function()
@@ -449,7 +437,7 @@ function UILibrary:CreateButton(parent, text, callback, options)
         Tween(Button, { BackgroundTransparency = 0 }, 0.1, nil, nil, 0.1)
         
         if callback then
-            callback()
+            task.spawn(callback)
         end
     end)
     
@@ -530,7 +518,7 @@ function UILibrary:CreateToggle(parent, text, default, callback)
         updateToggle()
         
         if callback then
-            callback(isToggled)
+            task.spawn(callback, isToggled)
         end
     end)
     
@@ -628,7 +616,7 @@ function UILibrary:CreateSlider(parent, text, min, max, default, callback)
         ValueLabel.Text = tostring(math.floor(currentValue))
         
         if callback then
-            callback(currentValue)
+            task.spawn(callback, currentValue)
         end
     end
     
@@ -667,12 +655,12 @@ function UILibrary:CreateSlider(parent, text, min, max, default, callback)
     }
 end
 
--- Cria um painel de usuário premium
-function UILibrary:CreateUserPanel(parent, player)
-    local UserContainer = Create("Frame", {
-        Name = "UserPanel_" .. player.Name,
+-- Cria um painel de informação
+function UILibrary:CreateInfoCard(parent, title, content, icon)
+    local CardContainer = Create("Frame", {
+        Name = "InfoCard_" .. title,
         BackgroundColor3 = self.Config.SecondaryColor,
-        Size = UDim2.new(1, 0, 0, 80),
+        Size = UDim2.new(1, 0, 0, 100),
         LayoutOrder = #parent:GetChildren(),
         Parent = parent
     }, {
@@ -683,85 +671,62 @@ function UILibrary:CreateUserPanel(parent, player)
         })
     })
     
-    -- Avatar circular
-    local AvatarContainer = Create("Frame", {
-        Name = "AvatarContainer",
+    local ContentFrame = Create("Frame", {
+        Name = "Content",
         BackgroundTransparency = 1,
-        Size = UDim2.new(0, 60, 0, 60),
-        Position = UDim2.new(0, 10, 0.5, -30),
-        Parent = UserContainer
-    })
-    
-    local AvatarMask = Create("Frame", {
-        Name = "AvatarMask",
-        BackgroundColor3 = self.Config.AccentColor,
-        Size = UDim2.new(1, 0, 1, 0),
-        Parent = AvatarContainer
-    }, {
-        Create("UICorner", { CornerRadius = UDim.new(1, 0) })
-    })
-    
-    local AvatarImage = Create("ImageLabel", {
-        Name = "Avatar",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, -4, 1, -4),
-        Position = UDim2.new(0, 2, 0, 2),
-        Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=420&h=420",
-        ScaleType = Enum.ScaleType.Crop,
-        Parent = AvatarMask
-    }, {
-        Create("UICorner", { CornerRadius = UDim.new(1, 0) })
-    })
-    
-    -- Informações do usuário
-    local InfoFrame = Create("Frame", {
-        Name = "InfoFrame",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(0.7, -80, 1, 0),
-        Position = UDim2.new(0, 80, 0, 0),
-        Parent = UserContainer
-    })
-    
-    local DisplayName = Create("TextLabel", {
-        Name = "DisplayName",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 24),
+        Size = UDim2.new(1, -20, 1, -20),
         Position = UDim2.new(0, 10, 0, 10),
+        Parent = CardContainer
+    })
+    
+    if icon then
+        local IconFrame = Create("Frame", {
+            Name = "IconFrame",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 40, 0, 40),
+            Position = UDim2.new(0, 0, 0, 0),
+            Parent = ContentFrame
+        })
+        
+        local Icon = Create("ImageLabel", {
+            Name = "Icon",
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            Image = icon,
+            ImageColor3 = self.Config.AccentColor,
+            Parent = IconFrame
+        })
+    end
+    
+    local TitleLabel = Create("TextLabel", {
+        Name = "Title",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, icon and -50 or 0, 0, 24),
+        Position = UDim2.new(0, icon and 50 or 0, 0, 0),
         Font = self.Config.FontBold,
-        Text = player.DisplayName,
+        Text = title,
         TextColor3 = self.Config.TextPrimary,
         TextSize = 16,
         TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = InfoFrame
+        Parent = ContentFrame
     })
     
-    local UserName = Create("TextLabel", {
-        Name = "UserName",
+    local ContentLabel = Create("TextLabel", {
+        Name = "Content",
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 20),
-        Position = UDim2.new(0, 10, 0, 34),
+        Size = UDim2.new(1, icon and -50 or 0, 0, 60),
+        Position = UDim2.new(0, icon and 50 or 0, 0, 24),
         Font = self.Config.Font,
-        Text = "@" .. player.Name,
-        TextColor3 = self.Config.TextDim,
+        Text = content,
+        TextColor3 = self.Config.TextSecondary,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        Parent = InfoFrame
+        TextWrapped = true,
+        TextYAlignment = Enum.TextYAlignment.Top,
+        Parent = ContentFrame
     })
     
-    -- Status indicator
-    local StatusIndicator = Create("Frame", {
-        Name = "Status",
-        BackgroundColor3 = Color3.fromRGB(0, 255, 0),
-        Size = UDim2.new(0, 8, 0, 8),
-        Position = UDim2.new(1, -25, 0, 15),
-        Parent = UserContainer
-    }, {
-        Create("UICorner", { CornerRadius = UDim.new(1, 0) })
-    })
-    
-    return UserContainer
+    return CardContainer
 end
 
 -- Cria um dropdown
@@ -914,7 +879,7 @@ function UILibrary:CreateDropdown(parent, text, options, default, callback)
             toggleDropdown()
             
             if callback then
-                callback(option, i)
+                task.spawn(callback, option, i)
             end
         end)
     end
@@ -929,6 +894,72 @@ function UILibrary:CreateDropdown(parent, text, options, default, callback)
                 selectedIndex = index
                 SelectedLabel.Text = options[index]
             end
+        end
+    }
+end
+
+-- Cria um campo de texto
+function UILibrary:CreateTextBox(parent, text, placeholder, callback)
+    local TextBoxContainer = Create("Frame", {
+        Name = "TextBox_" .. text,
+        BackgroundColor3 = self.Config.SecondaryColor,
+        Size = UDim2.new(1, 0, 0, 50),
+        LayoutOrder = #parent:GetChildren(),
+        Parent = parent
+    }, {
+        Create("UICorner", { CornerRadius = UDim.new(0, 8) }),
+        Create("UIStroke", {
+            Color = Color3.fromRGB(50, 50, 58),
+            Thickness = 1
+        })
+    })
+    
+    local TextBoxLabel = Create("TextLabel", {
+        Name = "Label",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.3, 0, 1, 0),
+        Position = UDim2.new(0, 15, 0, 0),
+        Font = self.Config.FontBold,
+        Text = text,
+        TextColor3 = self.Config.TextPrimary,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = TextBoxContainer
+    })
+    
+    local TextBox = Create("TextBox", {
+        Name = "TextBox",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0.7, -30, 1, 0),
+        Position = UDim2.new(0.3, 0, 0, 0),
+        Font = self.Config.Font,
+        PlaceholderText = placeholder or "Enter text...",
+        Text = "",
+        TextColor3 = self.Config.TextPrimary,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = TextBoxContainer
+    })
+    
+    TextBox.Focused:Connect(function()
+        Tween(TextBoxContainer.UIStroke, { Color = self.Config.AccentColor })
+    end)
+    
+    TextBox.FocusLost:Connect(function(enterPressed)
+        Tween(TextBoxContainer.UIStroke, { Color = Color3.fromRGB(50, 50, 58) })
+        
+        if callback and enterPressed then
+            task.spawn(callback, TextBox.Text)
+        end
+    end)
+    
+    return {
+        Container = TextBoxContainer,
+        GetText = function()
+            return TextBox.Text
+        end,
+        SetText = function(text)
+            TextBox.Text = text
         end
     }
 end
@@ -988,24 +1019,6 @@ function UILibrary:CreateFPSCounter(parent, position)
     end)
     
     return FPSCounter
-end
-
--- Sistema de keybinds melhorado
-function UILibrary:BindKey(key, callback, description)
-    self.Config.Keybinds[key] = {
-        Callback = callback,
-        Description = description or "No description"
-    }
-    
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode[key] then
-            callback()
-            
-            -- Feedback visual
-            self:CreateNotification("Keybind: " .. key .. " - " .. description)
-        end
-    end)
 end
 
 -- Sistema de notificações
@@ -1127,6 +1140,90 @@ function UILibrary:CreateLabel(parent, text, options)
     end
     
     return Label
+end
+
+-- Função de exemplo de uso
+function UILibrary:ShowExample()
+    local Window = self:CreateWindow("Premium UI Library", "v" .. self.Config.Version)
+    
+    -- Seção de introdução
+    local IntroSection = self:CreateSection(Window.Content, "Welcome", "A beautiful and modern UI library for any project")
+    
+    -- Card de informação
+    self:CreateInfoCard(Window.Content, "Features", 
+        "• Modern design with smooth animations\n" ..
+        "• Multiple themes and customization\n" ..
+        "• Responsive and mobile-friendly\n" ..
+        "• Easy to use and extend",
+        "rbxassetid://7733960981"
+    )
+    
+    self:CreateSeparator(Window.Content)
+    
+    -- Seção de controles
+    local ControlsSection = self:CreateSection(Window.Content, "Controls", "Test all UI components")
+    
+    -- Botões
+    self:CreateButton(Window.Content, "Primary Button", function()
+        self:CreateNotification("Primary button clicked!")
+    end, { Accent = true })
+    
+    self:CreateButton(Window.Content, "Secondary Button", function()
+        self:CreateNotification("Secondary button clicked!")
+    end)
+    
+    self:CreateButton(Window.Content, "Large Button", function()
+        self:CreateNotification("Large button clicked!")
+    end, { Size = "large" })
+    
+    self:CreateButton(Window.Content, "Small Button", function()
+        self:CreateNotification("Small button clicked!")
+    end, { Size = "small" })
+    
+    -- Toggles
+    local Toggle1 = self:CreateToggle(Window.Content, "Enable Feature", true, function(value)
+        self:CreateNotification("Feature: " .. (value and "Enabled" or "Disabled"))
+    end)
+    
+    local Toggle2 = self:CreateToggle(Window.Content, "Dark Mode", false, function(value)
+        self:SetTheme(value and "Dark" or "Light")
+        self:CreateNotification("Theme changed to " .. (value and "Dark" or "Light"))
+    end)
+    
+    -- Slider
+    local VolumeSlider = self:CreateSlider(Window.Content, "Volume", 0, 100, 75, function(value)
+        self:CreateNotification("Volume: " .. value)
+    end)
+    
+    -- Dropdown
+    local ThemeDropdown = self:CreateDropdown(Window.Content, "Select Theme", 
+        {"Dark", "Light", "Purple", "Green", "Sunset"}, 1, 
+        function(selected)
+            self:SetTheme(selected)
+            self:CreateNotification("Theme changed to " .. selected)
+        end
+    )
+    
+    -- TextBox
+    local NameBox = self:CreateTextBox(Window.Content, "Name", "Enter your name", function(text)
+        if text ~= "" then
+            self:CreateNotification("Hello, " .. text .. "!")
+        end
+    end)
+    
+    self:CreateSeparator(Window.Content)
+    
+    -- Seção final
+    local FooterSection = self:CreateSection(Window.Content, "About", "Universal UI Library for all projects")
+    
+    self:CreateButton(Window.Content, "Get Started", function()
+        self:CreateNotification("Enjoy using the UI Library!", 2)
+    end, { Accent = true, Size = "large" })
+    
+    -- Adicionar FPS Counter
+    self:CreateFPSCounter(Window.Container, UDim2.new(1, -100, 0, 10))
+    
+    return Window
 end
 
 return UILibrary
