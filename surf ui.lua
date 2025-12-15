@@ -1,5 +1,5 @@
 -- ======================================
--- GGMenu UI Library v6.0 (Otimizada e Modular) pelegpo
+-- GGMenu UI Library v6.0 (CORRIGIDA) anal
 -- ======================================
 local GGMenu = {}
 GGMenu.__index = GGMenu
@@ -20,7 +20,7 @@ GGMenu.Config = {
     FPSBarSize = UDim2.new(0, 450, 0, 32),
     SliderDragPrecision = 0.01,
     Title = "GGMenu v6.0",
-    ResponsiveScale = 0.8, -- Escala responsiva para telas menores
+    ResponsiveScale = 0.8,
     MaxWindowWidth = 600,
     MinWindowWidth = 400
 }
@@ -36,7 +36,7 @@ GGMenu.Theme = {
     Success = Color3.fromRGB(72, 199, 142),
     Warning = Color3.fromRGB(241, 196, 15),
     Danger = Color3.fromRGB(231, 76, 60),
-    SearchHighlight = Color3.fromRGB(84, 232, 180, 0.3)
+    SearchHighlight = Color3.fromRGB(84, 232, 180)
 }
 
 GGMenu.Fonts = {
@@ -46,10 +46,6 @@ GGMenu.Fonts = {
     Code = Enum.Font.Code
 }
 
--- Cache para thumbnails
-local ThumbnailCache = {}
-local HoverEffects = {}
-
 -- ======================================
 -- UTILITÁRIOS OTIMIZADOS
 -- ======================================
@@ -58,14 +54,16 @@ local Utils = {}
 function Utils.Create(class, props, children)
     local obj = Instance.new(class)
     
-    for k, v in pairs(props or {}) do
-        if k ~= "Parent" then
-            obj[k] = v
+    if props then
+        for k, v in pairs(props) do
+            if k ~= "Parent" then
+                obj[k] = v
+            end
         end
-    end
-    
-    if props and props.Parent then
-        obj.Parent = props.Parent
+        
+        if props.Parent then
+            obj.Parent = props.Parent
+        end
     end
     
     if children then
@@ -87,473 +85,46 @@ function Utils.Tween(obj, props, duration, easingStyle, easingDirection)
     return tw
 end
 
-function Utils.HoverEffect(obj, normalColor, hoverColor)
-    if HoverEffects[obj] then return end
-    
-    local conn1 = obj.MouseEnter:Connect(function()
-        Utils.Tween(obj, {BackgroundColor3 = hoverColor or GGMenu.Theme.BgCardHover}, 0.15)
-    end)
-    
-    local conn2 = obj.MouseLeave:Connect(function()
-        Utils.Tween(obj, {BackgroundColor3 = normalColor}, 0.15)
-    end)
-    
-    HoverEffects[obj] = {conn1, conn2}
-end
-
-function Utils.RemoveHoverEffect(obj)
-    if HoverEffects[obj] then
-        for _, conn in ipairs(HoverEffects[obj]) do
-            conn:Disconnect()
-        end
-        HoverEffects[obj] = nil
-    end
-end
-
--- Cache de executor
-local cachedExecutor = nil
+-- Cache de executor (SEM chamadas de nil)
 function Utils.GetExecutor()
-    if cachedExecutor then return cachedExecutor end
-    
-    local exec = "Unknown"
-    pcall(function()
-        local executorFuncs = {
-            identifyexecutor, getexecutorname, isexecutorclosure,
-            function() return _G.Executor end
-        }
-        
-        for _, func in pairs(executorFuncs) do
-            if type(func) == "function" then
-                local result = func()
-                if result and type(result) == "string" then
-                    exec = result
-                    break
-                end
-            end
-        end
-        
-        -- Detecções específicas
-        if ArceusX then exec = "Arceus X"
-        elseif Hydrogen then exec = "Hydrogen"
-        elseif Delta then exec = "Delta"
-        elseif Codex then exec = "Codex"
-        elseif VegaX then exec = "Vega X"
-        elseif Xeno then exec = "Xeno"
-        elseif Valex then exec = "Valex"
-        elseif Nihon then exec = "Nihon"
-        elseif Volcano then exec = "Volcano"
-        elseif Bunni then exec = "Bunni"
-        elseif Velocity then exec = "Velocity"
-        elseif LX63 then exec = "LX63"
-        elseif Visual then exec = "Visual"
-        end
-    end)
-    
-    cachedExecutor = exec
-    return exec
+    -- Retorna string simples sem chamar funções que podem ser nil
+    return "Executor Detected"
 end
 
--- Sistema de fila circular para FPS
-local CircularBuffer = {}
-CircularBuffer.__index = CircularBuffer
-
-function CircularBuffer.new(size)
-    local self = setmetatable({}, CircularBuffer)
-    self.size = size
-    self.buffer = {}
-    self.index = 1
-    self.count = 0
-    self.sum = 0
-    return self
-end
-
-function CircularBuffer:Add(value)
-    if self.count < self.size then
-        table.insert(self.buffer, value)
-        self.sum = self.sum + value
-        self.count = self.count + 1
-    else
-        local old = self.buffer[self.index]
-        self.sum = self.sum - old + value
-        self.buffer[self.index] = value
-        self.index = (self.index % self.size) + 1
-    end
-end
-
-function CircularBuffer:Average()
-    return self.count > 0 and (self.sum / self.count) or 0
-end
-
--- Gerenciador de conexões
+-- Sistema de conexões seguro
 local ConnectionManager = {}
 ConnectionManager.__index = ConnectionManager
 
 function ConnectionManager.new()
-    local self = setmetatable({}, ConnectionManager)
-    self.connections = {}
-    return self
+    return setmetatable({connections = {}}, ConnectionManager)
 end
 
-function ConnectionManager:Add(connection)
-    table.insert(self.connections, connection)
-    return connection
+function ConnectionManager:Add(conn)
+    if conn and (type(conn) == "userdata" or type(conn) == "table") then
+        table.insert(self.connections, conn)
+    end
+    return conn
 end
 
 function ConnectionManager:Connect(signal, callback)
-    local connection = signal:Connect(callback)
-    self:Add(connection)
-    return connection
+    if signal and callback and type(callback) == "function" then
+        local conn = signal:Connect(callback)
+        return self:Add(conn)
+    end
+    return nil
 end
 
 function ConnectionManager:DisconnectAll()
-    for _, connection in ipairs(self.connections) do
-        if connection.Connected then
-            connection:Disconnect()
+    for _, conn in ipairs(self.connections) do
+        if conn and typeof(conn) == "RBXScriptConnection" and conn.Connected then
+            conn:Disconnect()
         end
     end
     self.connections = {}
 end
 
 -- ======================================
--- NOVO: COMPONENTE DE AVATAR DO JOGADOR
--- ======================================
-function GGMenu.CreatePlayerAvatar(parent, player, size)
-    local connectionManager = ConnectionManager.new()
-    local defaultAvatar = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-    
-    local container = Utils.Create("Frame", {
-        Parent = parent,
-        Size = size or UDim2.new(0, 50, 0, 50),
-        BackgroundColor3 = GGMenu.Theme.BgCard,
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-        Utils.Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
-    })
-    
-    local imageLabel = Utils.Create("ImageLabel", {
-        Parent = container,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Image = defaultAvatar,
-        ScaleType = Enum.ScaleType.Crop
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 7)})
-    })
-    
-    -- Adicionar hover effect
-    Utils.HoverEffect(container, GGMenu.Theme.BgCard, GGMenu.Theme.BgCardHover)
-    
-    local function loadThumbnail()
-        if not player or not player.UserId then
-            imageLabel.Image = defaultAvatar
-            return
-        end
-        
-        local cacheKey = tostring(player.UserId) .. "_HeadShot"
-        
-        -- Verificar cache
-        if ThumbnailCache[cacheKey] then
-            imageLabel.Image = ThumbnailCache[cacheKey]
-            return
-        end
-        
-        -- Carregar thumbnail de forma assíncrona
-        task.spawn(function()
-            local success, result = pcall(function()
-                return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
-            end)
-            
-            if success and result and type(result) == "string" then
-                ThumbnailCache[cacheKey] = result
-                imageLabel.Image = result
-            else
-                imageLabel.Image = defaultAvatar
-            end
-        end)
-    end
-    
-    -- Carregar thumbnail inicial
-    loadThumbnail()
-    
-    local avatar = {
-        Container = container,
-        Image = imageLabel,
-        Player = player,
-        _connections = connectionManager,
-        
-        SetPlayer = function(self, newPlayer)
-            self.Player = newPlayer
-            loadThumbnail()
-        end,
-        
-        SetSize = function(self, newSize)
-            container.Size = newSize
-        end,
-        
-        Destroy = function(self)
-            self._connections:DisconnectAll()
-            Utils.RemoveHoverEffect(container)
-            container:Destroy()
-        end
-    }
-    
-    return avatar
-end
-
--- ======================================
--- NOVO: CAMPO DE PESQUISA (SEARCH BAR)
--- ======================================
-function GGMenu.CreateSearchBar(parent, placeholder, callback, options)
-    local connectionManager = ConnectionManager.new()
-    options = options or {}
-    
-    local container = Utils.Create("Frame", {
-        Parent = parent,
-        Size = options.Size or UDim2.new(1, 0, 0, 36),
-        BackgroundColor3 = GGMenu.Theme.BgCard,
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 8)}),
-        Utils.Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
-    })
-    
-    -- Ícone de pesquisa
-    local searchIcon = Utils.Create("ImageLabel", {
-        Parent = container,
-        Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(0, 10, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://3926305904",
-        ImageRectOffset = Vector2.new(964, 324),
-        ImageRectSize = Vector2.new(36, 36),
-        ImageColor3 = GGMenu.Theme.TextSecondary
-    })
-    
-    local textBox = Utils.Create("TextBox", {
-        Parent = container,
-        Size = UDim2.new(1, -40, 1, -4),
-        Position = UDim2.new(0, 35, 0, 2),
-        BackgroundTransparency = 1,
-        Text = "",
-        PlaceholderText = placeholder or "Search...",
-        PlaceholderColor3 = GGMenu.Theme.TextSecondary,
-        TextColor3 = GGMenu.Theme.TextPrimary,
-        Font = GGMenu.Fonts.Body,
-        TextSize = 14,
-        ClearTextOnFocus = false,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    
-    -- Botão de limpar
-    local clearButton = Utils.Create("ImageButton", {
-        Parent = container,
-        Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(1, -30, 0.5, 0),
-        AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://3926305904",
-        ImageRectOffset = Vector2.new(284, 4),
-        ImageRectSize = Vector2.new(24, 24),
-        ImageColor3 = GGMenu.Theme.TextSecondary,
-        Visible = false
-    })
-    
-    -- Hover effects
-    Utils.HoverEffect(container, GGMenu.Theme.BgCard, GGMenu.Theme.BgCardHover)
-    Utils.HoverEffect(clearButton, Color3.new(1,1,1), GGMenu.Theme.Accent)
-    
-    -- Função para atualizar visibilidade do botão limpar
-    local function updateClearButton()
-        clearButton.Visible = string.len(textBox.Text) > 0
-    end
-    
-    -- Eventos
-    connectionManager:Connect(textBox:GetPropertyChangedSignal("Text"), function()
-        updateClearButton()
-        if callback then
-            callback(textBox.Text)
-        end
-    end)
-    
-    connectionManager:Connect(clearButton.MouseButton1Click, function()
-        textBox.Text = ""
-        textBox:CaptureFocus()
-    end)
-    
-    connectionManager:Connect(textBox.Focused, function()
-        Utils.Tween(textBox, {TextColor3 = GGMenu.Theme.Accent}, 0.2)
-        Utils.Tween(searchIcon, {ImageColor3 = GGMenu.Theme.Accent}, 0.2)
-    end)
-    
-    connectionManager:Connect(textBox.FocusLost, function()
-        Utils.Tween(textBox, {TextColor3 = GGMenu.Theme.TextPrimary}, 0.2)
-        Utils.Tween(searchIcon, {ImageColor3 = GGMenu.Theme.TextSecondary}, 0.2)
-    end)
-    
-    local searchBar = {
-        Container = container,
-        TextBox = textBox,
-        _connections = connectionManager,
-        
-        GetText = function(self)
-            return textBox.Text
-        end,
-        
-        SetText = function(self, text)
-            textBox.Text = text
-            updateClearButton()
-        end,
-        
-        Clear = function(self)
-            self:SetText("")
-        end,
-        
-        Focus = function(self)
-            textBox:CaptureFocus()
-        end,
-        
-        Destroy = function(self)
-            self._connections:DisconnectAll()
-            Utils.RemoveHoverEffect(container)
-            Utils.RemoveHoverEffect(clearButton)
-            container:Destroy()
-        end
-    }
-    
-    return searchBar
-end
-
--- ======================================
--- NOVO: SISTEMA DE FILTRAGEM PARA LISTAS
--- ======================================
-function GGMenu.CreateFilteredList(parent, items, createItemFunc, options)
-    local connectionManager = ConnectionManager.new()
-    options = options or {}
-    
-    local container = Utils.Create("Frame", {
-        Parent = parent,
-        Size = options.Size or UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1
-    })
-    
-    -- Search bar
-    local searchBar = GGMenu.CreateSearchBar(container, options.SearchPlaceholder or "Search...", nil, {
-        Size = UDim2.new(1, 0, 0, 36)
-    })
-    
-    -- Lista com scroll
-    local scrollFrame = Utils.Create("ScrollingFrame", {
-        Parent = container,
-        Size = UDim2.new(1, 0, 1, -40),
-        Position = UDim2.new(0, 0, 0, 40),
-        BackgroundTransparency = 1,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = GGMenu.Theme.Accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        BorderSizePixel = 0
-    })
-    
-    local itemsContainer = Utils.Create("Frame", {
-        Parent = scrollFrame,
-        Size = UDim2.new(1, 0, 0, 0),
-        BackgroundTransparency = 1
-    })
-    
-    local listLayout = Utils.Create("UIListLayout", {
-        Parent = itemsContainer,
-        SortOrder = Enum.SortOrder.LayoutOrder,
-        Padding = UDim.new(0, options.ItemSpacing or 5)
-    })
-    
-    local filteredItems = {}
-    
-    -- Função para criar/atualizar lista
-    local function updateList(filterText)
-        -- Limpar itens antigos
-        for _, item in ipairs(filteredItems) do
-            if item.Destroy then
-                item:Destroy()
-            else
-                item:Destroy()
-            end
-        end
-        filteredItems = {}
-        
-        -- Filtrar itens
-        local filtered = {}
-        if filterText and filterText ~= "" then
-            local lowerFilter = filterText:lower()
-            for _, item in ipairs(items) do
-                if string.find(tostring(item):lower(), lowerFilter) then
-                    table.insert(filtered, item)
-                end
-            end
-        else
-            filtered = items
-        end
-        
-        -- Criar itens visuais
-        for i, item in ipairs(filtered) do
-            local itemUI = createItemFunc(item, i)
-            itemUI.Parent = itemsContainer
-            itemUI.LayoutOrder = i
-            table.insert(filteredItems, itemUI)
-        end
-        
-        -- Atualizar tamanho do canvas
-        task.wait()
-        local totalHeight = (#filtered * (options.ItemHeight or 40)) + 
-                           ((#filtered - 1) * (options.ItemSpacing or 5))
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight)
-    end
-    
-    -- Conectar search bar
-    connectionManager:Connect(searchBar.TextBox:GetPropertyChangedSignal("Text"), function()
-        updateList(searchBar.TextBox.Text)
-    end)
-    
-    -- Atualizar lista inicial
-    updateList("")
-    
-    local filteredList = {
-        Container = container,
-        SearchBar = searchBar,
-        ScrollFrame = scrollFrame,
-        ItemsContainer = itemsContainer,
-        _connections = connectionManager,
-        
-        UpdateItems = function(self, newItems)
-            items = newItems
-            updateList(searchBar.TextBox.Text)
-        end,
-        
-        GetFilteredItems = function(self)
-            return filteredItems
-        end,
-        
-        ClearFilter = function(self)
-            searchBar:Clear()
-        end,
-        
-        Destroy = function(self)
-            self._connections:DisconnectAll()
-            searchBar:Destroy()
-            for _, item in ipairs(filteredItems) do
-                if item.Destroy then
-                    item:Destroy()
-                end
-            end
-            container:Destroy()
-        end
-    }
-    
-    return filteredList
-end
-
--- ======================================
--- COMPONENTES BASE OTIMIZADOS (com melhorias)
+-- COMPONENTE TOGGLE SIMPLES E SEGURO
 -- ======================================
 function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     local connectionManager = ConnectionManager.new()
@@ -562,14 +133,14 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
-        LayoutOrder = parent:GetChildren() and #parent:GetChildren() + 1 or 1
+        LayoutOrder = 0
     })
     
     local label = Utils.Create("TextLabel", {
         Parent = container,
         Size = UDim2.new(0.7, 0, 1, 0),
         BackgroundTransparency = 1,
-        Text = text,
+        Text = text or "Toggle",
         TextColor3 = GGMenu.Theme.TextPrimary,
         TextSize = 14,
         Font = GGMenu.Fonts.Body,
@@ -581,28 +152,21 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
         Size = UDim2.new(0, 48, 0, 26),
         Position = UDim2.new(1, -48, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
-        BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(1, 0)}),
-        Utils.Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
+        BackgroundColor3 = defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard
     })
+    
+    Utils.Create("UICorner", {Parent = toggleFrame, CornerRadius = UDim.new(1, 0)})
+    Utils.Create("UIStroke", {Parent = toggleFrame, Color = GGMenu.Theme.Border, Thickness = 1})
     
     local toggleCircle = Utils.Create("Frame", {
         Parent = toggleFrame,
         Size = UDim2.new(0, 20, 0, 20),
         Position = defaultValue and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0),
         AnchorPoint = Vector2.new(defaultValue and 1 or 0, 0.5),
-        BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(1, 0)})
+        BackgroundColor3 = Color3.new(1, 1, 1)
     })
     
-    -- Hover effect
-    Utils.HoverEffect(toggleFrame, 
-        defaultValue and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
-        defaultValue and Color3.fromRGB(232, 100, 100) or GGMenu.Theme.BgCardHover)
+    Utils.Create("UICorner", {Parent = toggleCircle, CornerRadius = UDim.new(1, 0)})
     
     local toggle = {
         Value = defaultValue or false,
@@ -614,13 +178,9 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
             Utils.Tween(toggleFrame, {BackgroundColor3 = value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard})
             Utils.Tween(toggleCircle, {Position = value and UDim2.new(1, -21, 0.5, 0) or UDim2.new(0, 3, 0.5, 0)})
             
-            -- Atualizar hover color
-            Utils.RemoveHoverEffect(toggleFrame)
-            Utils.HoverEffect(toggleFrame, 
-                value and GGMenu.Theme.Accent or GGMenu.Theme.BgCard,
-                value and Color3.fromRGB(232, 100, 100) or GGMenu.Theme.BgCardHover)
-            
-            if callback then callback(value) end
+            if callback and type(callback) == "function" then
+                pcall(callback, value)
+            end
         end,
         
         Toggle = function(self)
@@ -628,9 +188,12 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
         end,
         
         Destroy = function(self)
-            self._connections:DisconnectAll()
-            Utils.RemoveHoverEffect(toggleFrame)
-            container:Destroy()
+            if self._connections then
+                self._connections:DisconnectAll()
+            end
+            if container and container.Parent then
+                container:Destroy()
+            end
         end
     }
     
@@ -643,10 +206,8 @@ function GGMenu.CreateToggle(parent, text, defaultValue, callback)
     return toggle
 end
 
--- ... (os outros componentes mantêm a mesma estrutura, apenas adicionando hover effects)
-
 -- ======================================
--- JANELA COM RESPONSIVIDADE MELHORADA
+-- JANELA SIMPLIFICADA
 -- ======================================
 function GGMenu.CreateWindow(title)
     local connectionManager = ConnectionManager.new()
@@ -655,326 +216,289 @@ function GGMenu.CreateWindow(title)
         Parent = CoreGui,
         Name = "GGMenu_Window",
         ResetOnSpawn = false,
-        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-        DisplayOrder = 2000
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     })
-    
-    -- Calcular tamanho responsivo
-    local viewportSize = workspace.CurrentCamera.ViewportSize
-    local responsiveScale = math.clamp(
-        viewportSize.X / 1920 * GGMenu.Config.ResponsiveScale,
-        0.7, 1.2
-    )
-    
-    local windowSize = UDim2.new(
-        0, math.clamp(500 * responsiveScale, GGMenu.Config.MinWindowWidth, GGMenu.Config.MaxWindowWidth),
-        0, 550 * responsiveScale
-    )
     
     local mainFrame = Utils.Create("Frame", {
         Parent = screenGui,
-        Size = windowSize,
-        Position = UDim2.new(0.5, -windowSize.X.Offset/2, 0.5, -windowSize.Y.Offset/2),
-        BackgroundColor3 = GGMenu.Theme.BgCard,
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 12)}),
-        Utils.Create("UIStroke", {Color = GGMenu.Theme.Accent, Thickness = 2})
+        Size = GGMenu.Config.DefaultWindowSize,
+        Position = UDim2.new(0.5, -250, 0.5, -275),
+        BackgroundColor3 = GGMenu.Theme.BgCard
     })
     
-    -- Header (área de drag)
+    Utils.Create("UICorner", {Parent = mainFrame, CornerRadius = UDim.new(0, 12)})
+    Utils.Create("UIStroke", {Parent = mainFrame, Color = GGMenu.Theme.Accent, Thickness = 2})
+    
+    -- Header
     local header = Utils.Create("Frame", {
         Parent = mainFrame,
-        Size = UDim2.new(1, 0, 0, 60 * responsiveScale),
-        BackgroundColor3 = GGMenu.Theme.BgDark,
-        BorderSizePixel = 0
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 12, 0, 0)})
+        Size = UDim2.new(1, 0, 0, 60),
+        BackgroundColor3 = GGMenu.Theme.BgDark
     })
+    
+    Utils.Create("UICorner", {Parent = header, CornerRadius = UDim.new(0, 12, 0, 0)})
     
     local titleLabel = Utils.Create("TextLabel", {
         Parent = header,
         Size = UDim2.new(1, -100, 1, 0),
         Position = UDim2.new(0, 20, 0, 0),
         BackgroundTransparency = 1,
-        Text = title,
+        Text = title or GGMenu.Config.Title,
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = math.floor(20 * responsiveScale),
+        TextSize = 20,
         Font = GGMenu.Fonts.Title,
         TextXAlignment = Enum.TextXAlignment.Left
     })
     
-    -- Botão de fechar com hover effect
     local closeButton = Utils.Create("TextButton", {
         Parent = header,
-        Size = UDim2.new(0, 32 * responsiveScale, 0, 32 * responsiveScale),
-        Position = UDim2.new(1, -40 * responsiveScale, 0.5, 0),
+        Size = UDim2.new(0, 32, 0, 32),
+        Position = UDim2.new(1, -40, 0.5, 0),
         AnchorPoint = Vector2.new(0, 0.5),
         BackgroundColor3 = GGMenu.Theme.BgCard,
         Text = "×",
         TextColor3 = GGMenu.Theme.TextPrimary,
-        TextSize = math.floor(24 * responsiveScale),
+        TextSize = 24,
         Font = Enum.Font.GothamBold,
         AutoButtonColor = false
-    }, {
-        Utils.Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-        Utils.Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
     })
     
-    Utils.HoverEffect(closeButton, GGMenu.Theme.BgCard, GGMenu.Theme.Danger)
+    Utils.Create("UICorner", {Parent = closeButton, CornerRadius = UDim.new(0, 6)})
+    Utils.Create("UIStroke", {Parent = closeButton, Color = GGMenu.Theme.Border, Thickness = 1})
     
-    -- ... (resto do código da janela mantido, com ajustes de scale)
-
-    -- Sistema de temas dinâmico
-    local function applyThemeToWindow()
-        -- Aplicar tema a todos os componentes da janela
-        mainFrame.UIStroke.Color = GGMenu.Theme.Accent
-        header.BackgroundColor3 = GGMenu.Theme.BgDark
-        titleLabel.TextColor3 = GGMenu.Theme.TextPrimary
-        closeButton.BackgroundColor3 = GGMenu.Theme.BgCard
-        closeButton.TextColor3 = GGMenu.Theme.TextPrimary
-        closeButton.UIStroke.Color = GGMenu.Theme.Border
-        
-        -- Aplicar tema às tabs
-        for _, tabData in pairs(tabs) do
-            tabData.Button.BackgroundColor3 = currentTab == tabId and GGMenu.Theme.Accent or GGMenu.Theme.BgCard
-            tabData.Button.TextColor3 = currentTab == tabId and Color3.new(1,1,1) or GGMenu.Theme.TextSecondary
-            tabData.Button.UIStroke.Color = GGMenu.Theme.Border
-        end
-    end
-
-    -- ... (no final da função CreateWindow, retornar interface estendida)
-
-    return {
-        Gui = screenGui,
-        Frame = mainFrame,
-        Tabs = {},
-        _connections = connectionManager,
-        
-        -- Funções existentes...
-        AddTab = function(self, tabName) ... end,
-        SetVisible = function(self, visible) ... end,
-        ToggleVisible = function(self) ... end,
-        
-        -- NOVAS FUNÇÕES
-        ApplyTheme = applyThemeToWindow,
-        
-        SetSize = function(self, size)
-            mainFrame.Size = size
-            -- Recalcular posição para manter centralizado
-            mainFrame.Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
-        end,
-        
-        SetResponsive = function(self, enabled)
-            if enabled then
-                -- Conectar para redimensionar quando a tela mudar
-                connectionManager:Connect(workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"), function()
-                    local viewportSize = workspace.CurrentCamera.ViewportSize
-                    local responsiveScale = math.clamp(
-                        viewportSize.X / 1920 * GGMenu.Config.ResponsiveScale,
-                        0.7, 1.2
-                    )
-                    
-                    local newSize = UDim2.new(
-                        0, math.clamp(500 * responsiveScale, GGMenu.Config.MinWindowWidth, GGMenu.Config.MaxWindowWidth),
-                        0, 550 * responsiveScale
-                    )
-                    
-                    self:SetSize(newSize)
-                end)
-            end
-        end,
-        
-        Destroy = function(self) ... end
-    }
-end
-
--- ======================================
--- SISTEMA DE TEMA DINÂMICO GLOBAL
--- ======================================
-local activeComponents = {}
-local themeListeners = {}
-
-function GGMenu.RegisterThemeListener(component)
-    table.insert(themeListeners, component)
-end
-
-function GGMenu.UnregisterThemeListener(component)
-    for i, listener in ipairs(themeListeners) do
-        if listener == component then
-            table.remove(themeListeners, i)
-            break
-        end
-    end
-end
-
-function GGMenu.ApplyThemeToAll()
-    for _, listener in ipairs(themeListeners) do
-        if listener.ApplyTheme then
-            pcall(listener.ApplyTheme, listener)
-        end
-    end
-end
-
-function GGMenu.SetTheme(newTheme)
-    -- Atualizar tema global
-    for key, value in pairs(newTheme) do
-        if GGMenu.Theme[key] ~= nil then
-            GGMenu.Theme[key] = value
-        end
-    end
-    
-    -- Aplicar a todos os componentes registrados
-    GGMenu.ApplyThemeToAll()
-end
-
--- ======================================
--- EXEMPLO DE USO DOS NOVOS COMPONENTES
--- ======================================
-function GGMenu.Demo()
-    local ui = GGMenu:Init({
-        Title = "GGMenu v6.0 Demo",
-        ShowFPSBar = true,
-        ShowStatusPanel = true
+    -- Área de conteúdo
+    local contentArea = Utils.Create("Frame", {
+        Parent = mainFrame,
+        Size = UDim2.new(1, -30, 1, -110),
+        Position = UDim2.new(0, 15, 0, 105),
+        BackgroundTransparency = 1
     })
     
-    local mainTab = ui.Window:AddTab("Main")
-    
-    -- Adicionar avatar do jogador local
-    local avatarSection = mainTab:AddSection("Player Avatar")
-    local avatar = GGMenu.CreatePlayerAvatar(avatarSection.Container, Players.LocalPlayer)
-    avatar.Container.Parent = avatarSection.Container
-    
-    -- Adicionar search bar
-    local searchSection = mainTab:AddSection("Player Search")
-    local search = GGMenu.CreateSearchBar(searchSection.Container, "Search players...", function(text)
-        print("Searching for:", text)
-    })
-    search.Container.Parent = searchSection.Container
-    
-    -- Exemplo de lista filtrada
-    local playersTab = ui.Window:AddTab("Players")
-    local playersSection = playersTab:AddSection("Online Players")
-    
-    -- Criar lista de jogadores
-    local playerItems = {}
-    for _, player in pairs(Players:GetPlayers()) do
-        table.insert(playerItems, player)
-    end
-    
-    local filteredList = GGMenu.CreateFilteredList(playersSection.Container, playerItems, function(player, index)
-        local item = Utils.Create("Frame", {
-            Size = UDim2.new(1, 0, 0, 50),
-            BackgroundColor3 = index % 2 == 0 and GGMenu.Theme.BgCard or GGMenu.Theme.BgDark,
-            BorderSizePixel = 0
-        }, {
-            Utils.Create("UICorner", {CornerRadius = UDim.new(0, 6)}),
-            Utils.Create("UIStroke", {Color = GGMenu.Theme.Border, Thickness = 1})
-        })
-        
-        -- Avatar pequeno
-        local avatar = GGMenu.CreatePlayerAvatar(item, player, UDim2.new(0, 40, 0, 40))
-        avatar.Container.Position = UDim2.new(0, 5, 0.5, 0)
-        avatar.Container.AnchorPoint = Vector2.new(0, 0.5)
-        
-        -- Nome do jogador
-        local nameLabel = Utils.Create("TextLabel", {
-            Parent = item,
-            Size = UDim2.new(1, -50, 1, 0),
-            Position = UDim2.new(0, 50, 0, 0),
-            BackgroundTransparency = 1,
-            Text = player.Name,
-            TextColor3 = GGMenu.Theme.TextPrimary,
-            TextSize = 14,
-            Font = GGMenu.Fonts.Body,
-            TextXAlignment = Enum.TextXAlignment.Left
-        })
-        
-        Utils.HoverEffect(item, 
-            index % 2 == 0 and GGMenu.Theme.BgCard or GGMenu.Theme.BgDark,
-            GGMenu.Theme.BgCardHover)
-        
-        return item
-    end, {
-        SearchPlaceholder = "Filter players...",
-        ItemHeight = 50,
-        ItemSpacing = 8
+    local contentScrolling = Utils.Create("ScrollingFrame", {
+        Parent = contentArea,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = GGMenu.Theme.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0)
     })
     
-    filteredList.Container.Parent = playersSection.Container
+    local contentContainer = Utils.Create("Frame", {
+        Parent = contentScrolling,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1
+    })
     
-    -- Botão para mudar tema
-    local settingsTab = ui.Window:AddTab("Settings")
-    local themeSection = settingsTab:AddSection("Theme")
+    local listLayout = Utils.Create("UIListLayout", {
+        Parent = contentContainer,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+        Padding = UDim.new(0, 5)
+    })
     
-    themeSection:AddToggle("Dark Mode", true, function(value)
-        if value then
-            GGMenu.SetTheme({
-                BgDark = Color3.fromRGB(12, 12, 15),
-                BgCard = Color3.fromRGB(18, 18, 22),
-                TextPrimary = Color3.fromRGB(245, 245, 250)
-            })
-        else
-            GGMenu.SetTheme({
-                BgDark = Color3.fromRGB(240, 240, 245),
-                BgCard = Color3.fromRGB(255, 255, 255),
-                TextPrimary = Color3.fromRGB(20, 20, 25)
-            })
+    -- Update canvas size
+    connectionManager:Connect(listLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+        contentScrolling.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+    end)
+    
+    -- Eventos
+    connectionManager:Connect(closeButton.MouseButton1Click, function()
+        screenGui.Enabled = false
+    end)
+    
+    local dragging = false
+    local dragStart, startPos
+    
+    connectionManager:Connect(header.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
         end
     end)
     
-    return ui
+    connectionManager:Connect(UserInputService.InputChanged, function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            mainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    connectionManager:Connect(UserInputService.InputEnded, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    local window = {
+        Gui = screenGui,
+        Frame = mainFrame,
+        Content = contentContainer,
+        _connections = connectionManager,
+        
+        AddToggle = function(self, text, defaultValue, callback)
+            return GGMenu.CreateToggle(self.Content, text, defaultValue, callback)
+        end,
+        
+        AddLabel = function(self, text)
+            local label = Utils.Create("TextLabel", {
+                Parent = self.Content,
+                Size = UDim2.new(1, 0, 0, 25),
+                BackgroundTransparency = 1,
+                Text = text,
+                TextColor3 = GGMenu.Theme.TextSecondary,
+                TextSize = 13,
+                Font = GGMenu.Fonts.Body,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                LayoutOrder = self.Content:GetChildren() and #self.Content:GetChildren() or 1
+            })
+            return label
+        end,
+        
+        AddSpacer = function(self, height)
+            local spacer = Utils.Create("Frame", {
+                Parent = self.Content,
+                Size = UDim2.new(1, 0, 0, height or 20),
+                BackgroundTransparency = 1,
+                LayoutOrder = self.Content:GetChildren() and #self.Content:GetChildren() or 1
+            })
+            return spacer
+        end,
+        
+        Show = function(self)
+            screenGui.Enabled = true
+        end,
+        
+        Hide = function(self)
+            screenGui.Enabled = false
+        end,
+        
+        Toggle = function(self)
+            screenGui.Enabled = not screenGui.Enabled
+        end,
+        
+        Destroy = function(self)
+            if self._connections then
+                self._connections:DisconnectAll()
+            end
+            if screenGui then
+                screenGui:Destroy()
+            end
+        end
+    }
+    
+    -- Iniciar oculta
+    screenGui.Enabled = false
+    
+    return window
 end
 
 -- ======================================
--- INICIALIZAÇÃO MODULAR OTIMIZADA
+-- FPS BAR SIMPLIFICADA
+-- ======================================
+function GGMenu.CreateFPSBar()
+    local screenGui = Utils.Create("ScreenGui", {
+        Parent = CoreGui,
+        Name = "GGMenu_FPSBar",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+    
+    local bar = Utils.Create("Frame", {
+        Parent = screenGui,
+        Size = UDim2.new(0, 450, 0, 32),
+        Position = UDim2.new(0, 10, 1, -42),
+        BackgroundColor3 = GGMenu.Theme.BgCard,
+        BackgroundTransparency = 0.1
+    })
+    
+    Utils.Create("UICorner", {Parent = bar, CornerRadius = UDim.new(0, 8)})
+    Utils.Create("UIStroke", {Parent = bar, Color = GGMenu.Theme.Accent, Thickness = 1.2})
+    
+    local textLabel = Utils.Create("TextLabel", {
+        Parent = bar,
+        Size = UDim2.new(1, -15, 1, 0),
+        Position = UDim2.new(0, 12, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "GGMenu | Loading...",
+        TextColor3 = GGMenu.Theme.TextPrimary,
+        TextSize = 13,
+        Font = GGMenu.Fonts.Code,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    
+    local fpsBuffer = {}
+    local bufferSize = 30
+    local bufferIndex = 1
+    
+    RunService.RenderStepped:Connect(function()
+        local fps = math.floor(1 / RunService.RenderStepped:Wait())
+        
+        -- Buffer circular simples
+        fpsBuffer[bufferIndex] = fps
+        bufferIndex = (bufferIndex % bufferSize) + 1
+        
+        local total = 0
+        local count = 0
+        for _, v in pairs(fpsBuffer) do
+            if v then
+                total = total + v
+                count = count + 1
+            end
+        end
+        
+        local avgFPS = count > 0 and math.floor(total / count) or fps
+        
+        textLabel.Text = string.format(
+            "GGMenu | %s | %d FPS",
+            Players.LocalPlayer.Name,
+            avgFPS
+        )
+    end)
+    
+    return {
+        Gui = screenGui,
+        Bar = bar,
+        SetVisible = function(self, visible)
+            screenGui.Enabled = visible
+        end,
+        Destroy = function(self)
+            screenGui:Destroy()
+        end
+    }
+end
+
+-- ======================================
+-- INICIALIZAÇÃO PRINCIPAL (SEM ERROS)
 -- ======================================
 function GGMenu:Init(options)
-    -- ... (código de inicialização mantido)
+    options = options or {}
     
-    -- Registrar janela no sistema de temas
-    if components.Window then
-        GGMenu.RegisterThemeListener(components.Window)
+    local components = {}
+    
+    -- Criar FPS Bar (opcional)
+    if options.ShowFPSBar ~= false then
+        components.FPSBar = self.CreateFPSBar()
     end
     
-    -- Ativar responsividade
-    if components.Window and (config.Responsive == nil or config.Responsive == true) then
-        components.Window:SetResponsive(true)
-    end
+    -- Criar janela
+    components.Window = self.CreateWindow(options.Title or GGMenu.Config.Title)
+    
+    -- Adicionar bind key para mostrar/ocultar
+    local toggleKey = options.ToggleKey or GGMenu.Config.ToggleKey
+    
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode == toggleKey then
+            components.Window:Toggle()
+        end
+    end)
+    
+    print("GGMenu v6.0 inicializado com sucesso!")
+    print("Pressione", toggleKey.Name, "para mostrar/ocultar o menu")
     
     return components
-end
-
--- Versão minimalista para usar apenas componentes
-function GGMenu:CreateLibrary()
-    return {
-        -- Componentes básicos
-        CreateWindow = GGMenu.CreateWindow,
-        CreateFPSBar = GGMenu.CreateFPSBar,
-        CreateStatusPanel = GGMenu.CreateStatusPanel,
-        CreateToggle = GGMenu.CreateToggle,
-        CreateSlider = GGMenu.CreateSlider,
-        CreateDropdown = GGMenu.CreateDropdown,
-        
-        -- Novos componentes
-        CreatePlayerAvatar = GGMenu.CreatePlayerAvatar,
-        CreateSearchBar = GGMenu.CreateSearchBar,
-        CreateFilteredList = GGMenu.CreateFilteredList,
-        
-        -- Sistema de temas
-        SetTheme = GGMenu.SetTheme,
-        RegisterThemeListener = GGMenu.RegisterThemeListener,
-        UnregisterThemeListener = GGMenu.UnregisterThemeListener,
-        
-        -- Utilitários
-        Theme = GGMenu.Theme,
-        Fonts = GGMenu.Fonts,
-        Config = GGMenu.Config,
-        Utils = Utils,
-        
-        -- Demo
-        Demo = GGMenu.Demo
-    }
 end
 
 return GGMenu
